@@ -92,6 +92,21 @@ quote age, minimum bookmaker coverage, the candidate threshold, and diagnostic
 boundaries. Pricing v1 supports proportional margin removal, median consensus,
 and leave-one-bookmaker-out evaluation only.
 
+## Odds history
+
+`SqliteOddsRepository` retains the exact raw provider bytes, normalized matches,
+and every timestamped match-winner snapshot. Stable response, match, and
+snapshot identifiers make repeated ingestion idempotent; reusing an identifier
+for different immutable data raises an explicit conflict instead of overwriting
+history.
+
+The `latest_snapshots_as_of` query returns each bookmaker's most recent quote
+that was already known at a UTC decision time and is still within the supplied
+freshness window. Future and stale quotes are excluded in SQL. Equivalent
+duplicates are collapsed deterministically, while different prices from the
+same bookmaker at the same latest timestamp are rejected as conflicting data.
+The returned snapshots can be passed directly to `evaluate_market`.
+
 ## Development
 
 The project targets Python 3.12.
