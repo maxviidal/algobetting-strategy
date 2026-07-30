@@ -234,6 +234,27 @@ def get_odds_api_key() -> str:
     return api_key
 
 
+def get_odds_papi_key() -> str:
+    """Return the OddsPapi key configured in the environment."""
+
+    api_key = os.getenv("ODDS_PAPI_KEY")
+    if not api_key:
+        raise RuntimeError(
+            "ODDS_PAPI_KEY environment variable is not set. "
+            "Add it to your environment variables."
+        )
+    return api_key
+
+
+def get_odds_papi_base_url() -> str:
+    """Return the configurable OddsPapi v4 endpoint without a trailing slash."""
+
+    value = os.getenv("ODDS_PAPI_BASE_URL", "https://api.oddspapi.io/v4").strip()
+    if not value.startswith("https://"):
+        raise RuntimeError("ODDS_PAPI_BASE_URL must use https://")
+    return value.rstrip("/")
+
+
 def load_env_file(path: Path, *, override: bool = False) -> bool:
     """Safely load simple KEY=VALUE entries without executing shell code."""
 

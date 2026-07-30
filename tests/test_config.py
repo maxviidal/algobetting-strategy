@@ -6,6 +6,8 @@ import pytest
 from tennis_value.config import (
     ConfigurationError,
     get_odds_api_key,
+    get_odds_papi_base_url,
+    get_odds_papi_key,
     load_env_file,
     load_settings,
 )
@@ -24,6 +26,14 @@ def test_get_odds_api_key_requires_environment_variable(
 
     with pytest.raises(RuntimeError, match="ODDS_API_KEY"):
         get_odds_api_key()
+
+
+def test_get_odds_papi_configuration(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("ODDS_PAPI_KEY", "papi-key")
+    monkeypatch.setenv("ODDS_PAPI_BASE_URL", "https://example.test/v4/")
+
+    assert get_odds_papi_key() == "papi-key"
+    assert get_odds_papi_base_url() == "https://example.test/v4"
 
 
 def test_load_env_file_reads_key_without_overwriting_existing_environment(

@@ -62,6 +62,11 @@ for its snapshot.
 API keys must be read from the `ODDS_API_KEY` environment variable at request
 time. Never place a real key in source code, fixtures, logs, or a committed URL.
 
+For the Wimbledon historical backtest, `ODDS_PAPI_KEY` is the separate
+OddsPapi credential and `ODDS_PAPI_BASE_URL=https://api.oddspapi.io/v4` is the
+provider endpoint. The local `.env` is ignored by Git; neither value belongs in
+source code or a committed configuration file.
+
 ## Market pricing and value signals
 
 The first pricing model is an explainable market-consensus baseline. For a
@@ -172,6 +177,27 @@ configured candidate threshold. Each candidate includes its bookmaker, offered
 odds, consensus probability, EV, peer count, and quality flags. All local
 commands accept `--database` and `--response-id` to select a different database
 or stored collection.
+
+## Backtesting core
+
+`tennis_value.backtesting` provides baseline unit-stake settlement plus a
+finite-bankroll Kelly simulation. `KellySettings()` starts at `10000` and uses
+`0.25` Kelly by default. For decimal odds `O` and consensus probability `p`,
+the full-Kelly fraction is `(O * p - 1) / (O - 1)`; the simulation stakes 25%
+of that fraction of available equity. It chooses a single highest-EV candidate
+per match so it never backs both players, and prevents overlapping matches from
+committing the same cash twice.
+
+`tennis_value.odds_papi.OddsPapiClient` validates the OddsPapi key and retrieves
+fixture-scoped historical price timelines. Its historical endpoint accepts a
+maximum of three bookmaker slugs at a time, so a nine-book whitelist is fetched
+as three provenance-preserving requests. The selected book whitelist and its
+historical Wimbledon coverage must be checked before a real backtest is run.
+
+Completed matches settle as wins or losses. Retirements, cancellations, and
+void results are recorded as void with no turnover or profit. A real historical
+backtest still needs historical odds snapshots and a separately sourced,
+provider-normalized match-result feed.
 
 ## Development
 
