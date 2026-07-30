@@ -91,7 +91,8 @@ certainty and make assumptions, data limitations, and sources of bias explicit.
 ### Python and Tooling
 
 - Target Python `3.12` unless project configuration states otherwise.
-- Use a `src/` package layout and manage project metadata in `pyproject.toml`.
+- Keep the `tennis_value/` package at the repository root while the project is
+  small, and manage project metadata in `pyproject.toml`.
 - Add type hints to public functions, methods, and data structures.
 - Prefer small, composable pure functions for probability calculations.
 - Use `pathlib.Path` instead of string-based path manipulation.
@@ -139,7 +140,7 @@ certainty and make assumptions, data limitations, and sources of bias explicit.
 - Update tests and documentation with behavioral changes.
 - Avoid unrelated refactors in feature or bug-fix changes.
 
-## Proposed Folder Structure
+## Project Structure
 
 ```text
 .
@@ -151,36 +152,17 @@ certainty and make assumptions, data limitations, and sources of bias explicit.
 ├── configs/
 │   ├── development.toml
 │   └── research.toml
-├── data/
-│   ├── raw/                 # Immutable source payloads; Git-ignored
-│   ├── interim/             # Normalized intermediate datasets; Git-ignored
-│   └── processed/           # Model-ready datasets; Git-ignored
-├── docs/
-│   ├── architecture.md
-│   └── methodology.md
-├── notebooks/               # Exploration only; production logic belongs in src
-├── scripts/                 # Thin operational and research entry points
-├── src/
-│   └── tennis_value/
-│       ├── __init__.py
-│       ├── config.py
-│       ├── domain/          # Typed entities and domain rules
-│       ├── ingestion/       # Bookmaker adapters and raw collection
-│       ├── normalization/   # Entity matching and quote validation
-│       ├── pricing/         # Implied probabilities and margin removal
-│       ├── consensus/       # Market aggregation strategies
-│       ├── signals/         # Value detection and filtering
-│       ├── storage/         # Repositories and persistence implementations
-│       ├── backtesting/     # Point-in-time simulation and evaluation
-│       └── cli/             # Command-line entry points
+├── tennis_value/
+│   ├── __init__.py
+│   └── config.py
 └── tests/
-    ├── unit/
-    ├── integration/
-    └── fixtures/
+    └── test_config.py
 ```
 
-Create directories only when they are needed. Every package should have a clear
-responsibility; do not add placeholder abstractions or duplicate production
+Keep this flat structure while the project is small. Split code into focused
+modules or subpackages only when a file has multiple clear responsibilities.
+Create data, documentation, notebook, or script directories only when actual
+content needs them. Do not add placeholder abstractions or duplicate production
 logic in notebooks and scripts.
 
 ## Definition of Done

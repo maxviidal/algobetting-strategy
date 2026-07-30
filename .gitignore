@@ -18,16 +18,8 @@ venv/
 .idea/
 .vscode/
 
-# Generated research data
-data/raw/*
-data/interim/*
-data/processed/*
-!data/raw/.gitkeep
-!data/interim/.gitkeep
-!data/processed/.gitkeep
-
-# Notebook output
-.ipynb_checkpoints/
+# Generated research data (create this directory only when needed)
+data/
 
 # Local databases and generated reports
 *.db
