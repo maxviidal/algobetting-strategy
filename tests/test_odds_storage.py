@@ -367,6 +367,40 @@ def test_snapshot_can_reference_preserved_raw_response(
     assert row == (response_id,)
 
 
+def test_same_immutable_snapshot_can_link_to_multiple_raw_responses(
+    odds_repository: tuple[SqliteOddsRepository, sqlite3.Connection],
+) -> None:
+    repository, connection = odds_repository
+    first_response = ingest_odds_api_json(
+        b"[]",
+        collected_at=CALCULATED_AT,
+        source="current-api",
+    )
+    second_response = ingest_odds_api_json(
+        b"[]",
+        collected_at=CALCULATED_AT + timedelta(seconds=30),
+        source="current-api",
+    )
+    first_id = repository.save_raw_response(first_response)
+    second_id = repository.save_raw_response(second_response)
+    repository.save_match(MATCH)
+    snapshot = make_snapshot("a", observed_at=DECISION_AT)
+
+    repository.save_snapshot(snapshot, raw_response_id=first_id)
+    repository.save_snapshot(snapshot, raw_response_id=second_id)
+
+    links = connection.execute(
+        """
+        SELECT response_id
+        FROM raw_response_snapshots
+        WHERE snapshot_id = ?
+        ORDER BY response_id
+        """,
+        (snapshot.snapshot_id,),
+    ).fetchall()
+    assert links == sorted([(first_id,), (second_id,)])
+
+
 def test_as_of_requires_utc_decision_time(
     odds_repository: tuple[SqliteOddsRepository, sqlite3.Connection],
 ) -> None:

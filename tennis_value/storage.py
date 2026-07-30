@@ -471,6 +471,21 @@ class SqliteOddsRepository:
             ),
         )
 
+    def get_latest_raw_response(self) -> StoredRawOddsResponse:
+        """Return the most recently collected raw response."""
+
+        row = self._connection.execute(
+            """
+            SELECT response_id
+            FROM raw_odds_responses
+            ORDER BY collected_at DESC, response_id DESC
+            LIMIT 1
+            """
+        ).fetchone()
+        if row is None:
+            raise KeyError("no raw odds responses are stored")
+        return self.get_raw_response(str(row[0]))
+
     def save_match(self, match: Match) -> None:
         """Insert one match or verify an identical existing record."""
 
@@ -594,10 +609,18 @@ class SqliteOddsRepository:
                     (snapshot.snapshot_id,),
                 ).fetchall()
             )
-            if existing_header != header_values or existing_prices != price_values:
+            if (
+                existing_header[:5] != header_values[:5]
+                or existing_prices != price_values
+            ):
                 raise StorageConflictError(
                     f"snapshot ID {snapshot.snapshot_id!r} has conflicting "
                     "immutable data"
+                )
+            if raw_response_id is not None:
+                self._link_snapshot_to_raw_response(
+                    snapshot.snapshot_id,
+                    raw_response_id,
                 )
             return
 
@@ -631,6 +654,11 @@ class SqliteOddsRepository:
                     for player_id, decimal_odds in price_values
                 ),
             )
+            if raw_response_id is not None:
+                self._link_snapshot_to_raw_response(
+                    snapshot.snapshot_id,
+                    raw_response_id,
+                )
 
     def save_snapshots(
         self,
@@ -702,6 +730,42 @@ class SqliteOddsRepository:
             _snapshots_from_query_rows(rows)
         )
 
+    def link_match_to_raw_response(
+        self,
+        match_id: str,
+        response_id: str,
+    ) -> None:
+        """Record that a normalized match appeared in one raw response."""
+
+        self._require_match(match_id)
+        self._require_raw_response(response_id)
+        with self._connection:
+            self._connection.execute(
+                """
+                INSERT OR IGNORE INTO raw_response_matches (
+                    response_id,
+                    match_id
+                )
+                VALUES (?, ?)
+                """,
+                (response_id, match_id),
+            )
+
+    def match_ids_for_raw_response(self, response_id: str) -> tuple[str, ...]:
+        """Return normalized matches linked to one collected response."""
+
+        self._require_raw_response(response_id)
+        rows = self._connection.execute(
+            """
+            SELECT match_id
+            FROM raw_response_matches
+            WHERE response_id = ?
+            ORDER BY match_id
+            """,
+            (response_id,),
+        ).fetchall()
+        return tuple(str(row[0]) for row in rows)
+
     def _require_match(self, match_id: str) -> None:
         row = self._connection.execute(
             "SELECT 1 FROM matches WHERE match_id = ?",
@@ -717,6 +781,22 @@ class SqliteOddsRepository:
         ).fetchone()
         if row is None:
             raise KeyError(f"unknown raw response ID {response_id!r}")
+
+    def _link_snapshot_to_raw_response(
+        self,
+        snapshot_id: str,
+        response_id: str,
+    ) -> None:
+        self._connection.execute(
+            """
+            INSERT OR IGNORE INTO raw_response_snapshots (
+                response_id,
+                snapshot_id
+            )
+            VALUES (?, ?)
+            """,
+            (response_id, snapshot_id),
+        )
 
     def _create_schema(self) -> None:
         with self._connection:
@@ -770,6 +850,34 @@ class SqliteOddsRepository:
                     decimal_odds TEXT NOT NULL,
                     PRIMARY KEY (snapshot_id, player_id)
                 );
+
+                CREATE TABLE IF NOT EXISTS raw_response_snapshots (
+                    response_id TEXT NOT NULL
+                        REFERENCES raw_odds_responses (response_id)
+                        ON DELETE RESTRICT,
+                    snapshot_id TEXT NOT NULL
+                        REFERENCES odds_snapshots (snapshot_id)
+                        ON DELETE RESTRICT,
+                    PRIMARY KEY (response_id, snapshot_id)
+                );
+
+                CREATE TABLE IF NOT EXISTS raw_response_matches (
+                    response_id TEXT NOT NULL
+                        REFERENCES raw_odds_responses (response_id)
+                        ON DELETE RESTRICT,
+                    match_id TEXT NOT NULL
+                        REFERENCES matches (match_id)
+                        ON DELETE RESTRICT,
+                    PRIMARY KEY (response_id, match_id)
+                );
+
+                INSERT OR IGNORE INTO raw_response_snapshots (
+                    response_id,
+                    snapshot_id
+                )
+                SELECT raw_response_id, snapshot_id
+                FROM odds_snapshots
+                WHERE raw_response_id IS NOT NULL;
                 """
             )
 

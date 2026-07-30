@@ -132,6 +132,47 @@ Current collection deliberately stops after raw preservation. Player names must
 be reviewed and registered before normalization so a provider spelling change
 cannot silently create or merge player identities.
 
+Review the names found in the latest stored response:
+
+```bash
+python -m tennis_value players pending
+```
+
+Approve names individually, repeating `--name` when needed:
+
+```bash
+python -m tennis_value players approve \
+  --name "Player One" \
+  --name "Player Two"
+```
+
+When every displayed name has been reviewed, `--all` is an explicit shortcut:
+
+```bash
+python -m tennis_value players approve --all
+```
+
+Normalize the latest raw response into matches and bookmaker snapshots:
+
+```bash
+python -m tennis_value normalize
+```
+
+Finally, run point-in-time consensus and EV evaluation. The response collection
+time is used as the decision time by default, so replaying the command later
+does not make the stored quotes stale or introduce future information:
+
+```bash
+python -m tennis_value evaluate \
+  --config configs/research.toml
+```
+
+The evaluation prints all run counts but displays only offers that meet the
+configured candidate threshold. Each candidate includes its bookmaker, offered
+odds, consensus probability, EV, peer count, and quality flags. All local
+commands accept `--database` and `--response-id` to select a different database
+or stored collection.
+
 ## Development
 
 The project targets Python 3.12.
