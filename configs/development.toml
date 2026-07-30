@@ -1,0 +1,11 @@
+[collection]
+minimum_bookmakers = 2
+maximum_quote_age_seconds = 300
+
+[pricing]
+margin_method = "proportional"
+consensus_method = "median"
+leave_one_bookmaker_out = true
+
+[signals]
+minimum_expected_value = 0.03

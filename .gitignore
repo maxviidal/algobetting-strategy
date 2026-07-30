@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Virtual environments and local configuration
+.venv/
+venv/
+.env
+
+# Editors and operating systems
+.DS_Store
+.idea/
+.vscode/
+
+# Generated research data
+data/raw/*
+data/interim/*
+data/processed/*
+!data/raw/.gitkeep
+!data/interim/.gitkeep
+!data/processed/.gitkeep
+
+# Notebook output
+.ipynb_checkpoints/
+
+# Local databases and generated reports
+*.db
+*.sqlite
+*.sqlite3
+reports/
