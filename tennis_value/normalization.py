@@ -110,9 +110,8 @@ class OddsApiNormalizer:
 
         match_id = _stable_id(
             "match",
-            tournament.tournament_id,
-            *(str(player_id) for player_id in sorted(player_ids)),
-            scheduled_start.isoformat(),
+            THE_ODDS_API_PROVIDER,
+            source_event_id,
         )
         match = Match(
             match_id=match_id,

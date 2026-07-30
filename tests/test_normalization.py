@@ -142,6 +142,20 @@ def test_normalization_generates_stable_match_and_snapshot_ids() -> None:
     assert first[0].snapshots[0].snapshot_id == second[0].snapshots[0].snapshot_id
 
 
+def test_rescheduled_provider_event_retains_match_id() -> None:
+    normalizer = make_normalizer()
+
+    original = normalizer.normalize(
+        make_response(commence_time="2026-07-12T15:00:00Z")
+    )[0]
+    rescheduled = normalizer.normalize(
+        make_response(commence_time="2026-07-12T17:00:00Z")
+    )[0]
+
+    assert original.match.scheduled_start != rescheduled.match.scheduled_start
+    assert original.match.match_id == rescheduled.match.match_id
+
+
 def test_realistic_french_open_response_extracts_only_h2h_snapshots() -> None:
     fixture_path = Path(__file__).parent / "fixtures" / "odds_api_french_open.json"
     response = load_odds_api_json(
