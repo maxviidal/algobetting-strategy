@@ -11,6 +11,9 @@ requires-python = ">=3.12"
 license = { text = "Proprietary" }
 dependencies = []
 
+[project.scripts]
+tennis-value = "tennis_value.cli:main"
+
 [project.optional-dependencies]
 dev = [
     "mypy>=1.11",

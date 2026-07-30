@@ -1,6 +1,7 @@
 """Typed application configuration."""
 
 import os
+import re
 import tomllib
 from dataclasses import dataclass, field
 from decimal import Decimal
@@ -9,6 +10,8 @@ from typing import Literal, cast
 
 type MarginMethod = Literal["proportional"]
 type ConsensusMethod = Literal["median"]
+
+_ENVIRONMENT_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 
 class ConfigurationError(ValueError):
@@ -231,6 +234,39 @@ def get_odds_api_key() -> str:
     return api_key
 
 
+def load_env_file(path: Path, *, override: bool = False) -> bool:
+    """Safely load simple KEY=VALUE entries without executing shell code."""
+
+    if not path.exists():
+        return False
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except OSError as error:
+        message = f"Could not read environment file {path}: {error}"
+        raise ConfigurationError(message) from error
+
+    for line_number, raw_line in enumerate(lines, start=1):
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if line.startswith("export "):
+            line = line.removeprefix("export ").lstrip()
+        if "=" not in line:
+            raise ConfigurationError(
+                f"{path}:{line_number} must use NAME=VALUE syntax"
+            )
+        name, raw_value = line.split("=", 1)
+        name = name.strip()
+        if _ENVIRONMENT_NAME.fullmatch(name) is None:
+            raise ConfigurationError(
+                f"{path}:{line_number} has an invalid environment variable name"
+            )
+        value = _parse_env_value(raw_value.strip(), path, line_number)
+        if override or name not in os.environ:
+            os.environ[name] = value
+    return True
+
+
 def _required_table(
     raw: dict[str, object],
     key: str,
@@ -315,3 +351,19 @@ def _require_positive_decimal(value: Decimal, field_name: str) -> None:
 def _require_probability_like(value: Decimal, field_name: str) -> None:
     if not value.is_finite() or value < 0 or value > 1:
         raise ConfigurationError(f"{field_name} must be between 0 and 1")
+
+
+def _parse_env_value(value: str, path: Path, line_number: int) -> str:
+    if not value:
+        return ""
+    if value[0] in {'"', "'"}:
+        quote = value[0]
+        if len(value) < 2 or value[-1] != quote:
+            raise ConfigurationError(
+                f"{path}:{line_number} has an unterminated quoted value"
+            )
+        return value[1:-1]
+    comment_start = value.find(" #")
+    if comment_start >= 0:
+        value = value[:comment_start]
+    return value.strip()

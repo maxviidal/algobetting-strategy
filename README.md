@@ -107,6 +107,31 @@ duplicates are collapsed deterministically, while different prices from the
 same bookmaker at the same latest timestamp are rejected as conflicting data.
 The returned snapshots can be passed directly to `evaluate_market`.
 
+## Command-line collection
+
+The local `.env` file is loaded safely as data rather than executed as a shell
+script. To list active tennis tournament keys using The Odds API's quota-free
+sports endpoint:
+
+```bash
+python -m tennis_value sports
+```
+
+To request current UK match-winner odds and preserve the exact response:
+
+```bash
+python -m tennis_value collect --sport tennis_atp_example
+```
+
+Replace `tennis_atp_example` with an active key from the `sports` command. The
+response is stored in `data/tennis_value.sqlite3` by default, and the command
+prints the provider's request cost and remaining quota when those headers are
+available. API keys are never written to stored provenance or command output.
+
+Current collection deliberately stops after raw preservation. Player names must
+be reviewed and registered before normalization so a provider spelling change
+cannot silently create or merge player identities.
+
 ## Development
 
 The project targets Python 3.12.

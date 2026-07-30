@@ -1,3 +1,4 @@
+import os
 from decimal import Decimal
 from pathlib import Path
 
@@ -5,6 +6,7 @@ import pytest
 from tennis_value.config import (
     ConfigurationError,
     get_odds_api_key,
+    load_env_file,
     load_settings,
 )
 
@@ -22,6 +24,36 @@ def test_get_odds_api_key_requires_environment_variable(
 
     with pytest.raises(RuntimeError, match="ODDS_API_KEY"):
         get_odds_api_key()
+
+
+def test_load_env_file_reads_key_without_overwriting_existing_environment(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    env_path = tmp_path / ".env"
+    env_path.write_text(
+        """
+# local secret
+ODDS_API_KEY="file-key"
+SECOND_VALUE=value # comment
+"""
+    )
+    monkeypatch.setenv("ODDS_API_KEY", "existing-key")
+    monkeypatch.delenv("SECOND_VALUE", raising=False)
+
+    assert load_env_file(env_path)
+    assert get_odds_api_key() == "existing-key"
+    assert os.environ["SECOND_VALUE"] == "value"
+
+
+def test_load_env_file_rejects_shell_syntax(
+    tmp_path: Path,
+) -> None:
+    env_path = tmp_path / ".env"
+    env_path.write_text("not a shell command\n")
+
+    with pytest.raises(ConfigurationError, match="NAME=VALUE"):
+        load_env_file(env_path)
 
 
 @pytest.mark.parametrize(
