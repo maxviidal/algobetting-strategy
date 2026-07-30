@@ -1,0 +1,58 @@
+[
+  {
+    "id": "31a3d9a34b70c060f165cc2051676443",
+    "sport_key": "tennis_atp_french_open",
+    "sport_title": "ATP French Open",
+    "commence_time": "2025-05-31T09:00:00Z",
+    "home_team": "Tallon Griekspoor",
+    "away_team": "Ethan Quinn",
+    "bookmakers": [
+      {
+        "key": "grosvenor",
+        "title": "Grosvenor",
+        "last_update": "2025-05-31T03:22:14Z",
+        "markets": [
+          {
+            "key": "h2h",
+            "last_update": "2025-05-31T03:22:14Z",
+            "outcomes": [
+              {"name": "Ethan Quinn", "price": 4.6},
+              {"name": "Tallon Griekspoor", "price": 1.21}
+            ]
+          },
+          {
+            "key": "spreads",
+            "last_update": "2025-05-31T03:22:14Z",
+            "outcomes": [
+              {"name": "Ethan Quinn", "price": 1.83, "point": 5.5},
+              {"name": "Tallon Griekspoor", "price": 1.94, "point": -5.5}
+            ]
+          },
+          {
+            "key": "totals",
+            "last_update": "2025-05-31T03:22:14Z",
+            "outcomes": [
+              {"name": "Over", "price": 1.93, "point": 38.5},
+              {"name": "Under", "price": 1.85, "point": 38.5}
+            ]
+          }
+        ]
+      },
+      {
+        "key": "betway",
+        "title": "Betway",
+        "last_update": "2025-05-31T03:10:15Z",
+        "markets": [
+          {
+            "key": "h2h",
+            "last_update": "2025-05-31T03:10:15Z",
+            "outcomes": [
+              {"name": "Ethan Quinn", "price": 5.25},
+              {"name": "Tallon Griekspoor", "price": 1.15}
+            ]
+          }
+        ]
+      }
+    ]
+  }
+]
