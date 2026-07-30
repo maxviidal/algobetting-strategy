@@ -199,6 +199,47 @@ void results are recorded as void with no turnover or profit. A real historical
 backtest still needs historical odds snapshots and a separately sourced,
 provider-normalized match-result feed.
 
+## ATP Wimbledon 2026 OddsPapi backtest
+
+The runnable OddsPapi workflow uses the Wimbledon Men Singles tournament
+(`2555`), the nine validated sportsbooks, and a fixed decision time of 60
+minutes before scheduled start. It evaluates the market with
+`configs/research.toml`, starts with `10000` equity, and stakes 25% of the
+full-Kelly fraction.
+
+The command stores exact fixture, settlement, and historical-odds responses
+under `data/oddspapi/wimbledon_atp_2026`. Writes are atomic, valid cached JSON is
+reused, and rerunning the command resumes instead of requesting completed
+fixtures again. The cache is ignored by Git.
+
+Before making provider requests, confirm `.env` contains:
+
+```text
+ODDS_PAPI_KEY=your-key
+ODDS_PAPI_BASE_URL=https://api.oddspapi.io/v4
+```
+
+Inspect the command without accessing OddsPapi:
+
+```bash
+python -m tennis_value backtest-atp-wimbledon --help
+```
+
+Run or resume the complete backtest:
+
+```bash
+python -m tennis_value backtest-atp-wimbledon \
+  --config configs/research.toml \
+  --cache-directory data/oddspapi/wimbledon_atp_2026
+```
+
+The first complete run uses one billable fixture request and one billable
+settlement request per returned match. Historical-odds calls are issued in
+three groups of three bookmakers and follow the provider cooldown. Subsequent
+runs use the local cache and normally make no requests. Do not delete a partial
+cache merely to restart: rerun the same command and it will continue from the
+last valid response.
+
 ## Development
 
 The project targets Python 3.12.

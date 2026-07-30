@@ -11,11 +11,15 @@ from pathlib import Path
 from tennis_value.config import (
     ConfigurationError,
     get_odds_api_key,
+    get_odds_papi_base_url,
+    get_odds_papi_key,
     load_env_file,
     load_settings,
 )
 from tennis_value.ingestion import IngestionError
 from tennis_value.odds_api import OddsApiClient, OddsApiError, OddsApiQuota
+from tennis_value.odds_papi import OddsPapiClient, OddsPapiError
+from tennis_value.oddspapi_backtest import run_atp_wimbledon_backtest
 from tennis_value.storage import SqliteOddsRepository, SqlitePlayerRegistry
 from tennis_value.workflow import (
     PendingPlayersError,
@@ -71,6 +75,12 @@ def main(argv: Sequence[str] | None = None) -> int:
                 config_path=Path(arguments.config),
                 decision_at=_optional_datetime(arguments.decision_at),
             )
+        if arguments.command == "backtest-atp-wimbledon":
+            return _backtest_atp_wimbledon(
+                arguments,
+                config_path=Path(arguments.config),
+                cache_directory=Path(arguments.cache_directory),
+            )
     except PendingPlayersError as error:
         print(f"error: {error}", file=sys.stderr)
         print(
@@ -83,6 +93,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         ConfigurationError,
         IngestionError,
         OddsApiError,
+        OddsPapiError,
         OSError,
         RuntimeError,
         sqlite3.Error,
@@ -103,7 +114,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--env-file",
         default=".env",
-        help="environment file containing ODDS_API_KEY (default: .env)",
+        help="environment file containing provider API keys (default: .env)",
     )
     parser.add_argument(
         "--timeout",
@@ -193,6 +204,20 @@ def _build_parser() -> argparse.ArgumentParser:
             "collection time"
         ),
     )
+    backtest = commands.add_parser(
+        "backtest-atp-wimbledon",
+        help="run the OddsPapi ATP Wimbledon 2026 60-minute backtest",
+    )
+    backtest.add_argument(
+        "--config",
+        default="configs/research.toml",
+        help="typed model configuration path",
+    )
+    backtest.add_argument(
+        "--cache-directory",
+        default="data/oddspapi/wimbledon_atp_2026",
+        help="raw response cache for safe resume",
+    )
     return parser
 
 
@@ -216,6 +241,15 @@ def _api_client(arguments: argparse.Namespace) -> OddsApiClient:
     load_env_file(Path(arguments.env_file))
     return OddsApiClient(
         get_odds_api_key(),
+        timeout_seconds=float(arguments.timeout),
+    )
+
+
+def _odds_papi_client(arguments: argparse.Namespace) -> OddsPapiClient:
+    load_env_file(Path(arguments.env_file))
+    return OddsPapiClient(
+        get_odds_papi_key(),
+        base_url=get_odds_papi_base_url(),
         timeout_seconds=float(arguments.timeout),
     )
 
@@ -395,6 +429,42 @@ def _evaluate(
                 f"Skipped {skipped.match.match_id}: {skipped.reason}",
                 file=sys.stderr,
             )
+    return 0
+
+
+def _backtest_atp_wimbledon(
+    arguments: argparse.Namespace,
+    *,
+    config_path: Path,
+    cache_directory: Path,
+) -> int:
+    run = run_atp_wimbledon_backtest(
+        _odds_papi_client(arguments),
+        model_settings=load_settings(config_path),
+        cache_directory=cache_directory,
+    )
+    report = run.report
+    print("Tournament: ATP Wimbledon Men Singles 2026")
+    print("Decision time: 60 minutes before scheduled start")
+    print("Bookmakers: 9")
+    print("Kelly fraction: 25%")
+    print(f"Initial equity: {report.settings.initial_equity}")
+    print(f"Fixtures: {run.fixture_count}")
+    print(f"Matches evaluated: {run.evaluated_matches}")
+    print(f"Matches skipped: {run.skipped_matches}")
+    print(f"Offers evaluated: {run.offer_evaluations}")
+    print(f"Candidates selected: {report.selected_candidates}")
+    print(f"Settled bets: {report.settled_bets}")
+    print(f"Wins: {report.wins}")
+    print(f"Losses: {report.losses}")
+    print(f"Voids: {report.void_bets}")
+    print(f"Turnover: {report.turnover}")
+    print(f"Profit: {report.profit}")
+    print(f"Final equity: {report.final_equity}")
+    print(f"ROI: {_percent(report.roi)}")
+    print(f"Hit rate: {_percent(report.hit_rate)}")
+    print(f"Maximum drawdown: {report.maximum_drawdown}")
+    print(f"Raw cache: {cache_directory.resolve()}")
     return 0
 
 

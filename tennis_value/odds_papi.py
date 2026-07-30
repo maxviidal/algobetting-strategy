@@ -56,6 +56,57 @@ class OddsPapiClient:
 
         return self._get("/bookmakers", {})
 
+    def fetch_fixtures(
+        self,
+        *,
+        tournament_id: int,
+        status_id: int,
+        from_time: datetime,
+        to_time: datetime,
+    ) -> OddsPapiResponse:
+        """Fetch fixtures for one tournament and UTC time window."""
+
+        if tournament_id <= 0:
+            raise ValueError("tournament_id must be positive")
+        if status_id not in {0, 1, 2, 3}:
+            raise ValueError("status_id must be between zero and three")
+        _require_utc(from_time, "from_time")
+        _require_utc(to_time, "to_time")
+        if from_time >= to_time:
+            raise ValueError("from_time must be earlier than to_time")
+        return self._get(
+            "/fixtures",
+            {
+                "tournamentId": str(tournament_id),
+                "statusId": str(status_id),
+                "from": _iso_z(from_time),
+                "to": _iso_z(to_time),
+            },
+        )
+
+    def fetch_settlement(self, fixture_id: str) -> OddsPapiResponse:
+        """Fetch the final market settlement for one fixture."""
+
+        fixture = _required_parameter(fixture_id, "fixture_id")
+        return self._get("/settlements", {"fixtureId": fixture})
+
+    def fetch_historical_odds_group(
+        self,
+        fixture_id: str,
+        *,
+        bookmakers: tuple[str, ...],
+    ) -> OddsPapiResponse:
+        """Fetch historical odds for one provider-supported group of up to three."""
+
+        fixture = _required_parameter(fixture_id, "fixture_id")
+        requested = _validated_bookmakers(bookmakers)
+        if len(requested) > 3:
+            raise ValueError("one historical request supports at most three bookmakers")
+        return self._get(
+            "/historical-odds",
+            {"fixtureId": fixture, "bookmakers": ",".join(requested)},
+        )
+
     def fetch_historical_odds(
         self,
         fixture_id: str,
@@ -67,10 +118,7 @@ class OddsPapiClient:
         fixture = _required_parameter(fixture_id, "fixture_id")
         requested = _validated_bookmakers(bookmakers)
         return tuple(
-            self._get(
-                "/historical-odds",
-                {"fixtureId": fixture, "bookmakers": ",".join(group)},
-            )
+            self.fetch_historical_odds_group(fixture, bookmakers=group)
             for group in _chunks(requested, 3)
         )
 
@@ -145,3 +193,14 @@ def _chunks(values: tuple[str, ...], size: int) -> tuple[tuple[str, ...], ...]:
         tuple(values[index : index + size])
         for index in range(0, len(values), size)
     )
+
+
+def _require_utc(value: datetime, field_name: str) -> None:
+    if value.tzinfo is None or value.utcoffset() is None:
+        raise ValueError(f"{field_name} must be timezone-aware")
+    if value.utcoffset() != UTC.utcoffset(value):
+        raise ValueError(f"{field_name} must be in UTC")
+
+
+def _iso_z(value: datetime) -> str:
+    return value.isoformat().replace("+00:00", "Z")
