@@ -1,33 +1,41 @@
 import json
+import sqlite3
 from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
 
 import pytest
 from tennis_value.domain import Bookmaker, Player, Tournament
+from tennis_value.entity_resolution import (
+    THE_ODDS_API_PROVIDER,
+    AmbiguousEntityError,
+    InMemoryPlayerResolver,
+    PlayerAlias,
+    UnknownEntityError,
+    normalized_name,
+)
 from tennis_value.ingestion import (
     IngestedOddsApiResponse,
     ingest_odds_api_json,
     load_odds_api_json,
 )
-from tennis_value.normalization import (
-    AmbiguousEntityError,
-    InvalidMarketError,
-    OddsApiNormalizer,
-    UnknownEntityError,
-    normalized_name,
-)
+from tennis_value.normalization import InvalidMarketError, OddsApiNormalizer
+from tennis_value.storage import SqlitePlayerRegistry
 
 
 def make_normalizer() -> OddsApiNormalizer:
     return OddsApiNormalizer(
-        players=(
-            Player(1001, "Jannik Sinner"),
-            Player(1002, "Carlos Alcaraz"),
+        player_resolver=InMemoryPlayerResolver(
+            players=(
+                Player(1001, "Jannik Sinner"),
+                Player(1002, "Carlos Alcaraz"),
+            ),
+            aliases=(
+                PlayerAlias(THE_ODDS_API_PROVIDER, "J. Sinner", 1001),
+            ),
         ),
         tournaments=(Tournament("tournament-wimbledon", "ATP Wimbledon"),),
         bookmakers=(Bookmaker("bookmaker-pinnacle", "Pinnacle"),),
-        player_aliases={"J. Sinner": 1001},
         tournament_aliases={
             "tennis_atp_wimbledon": "tournament-wimbledon",
         },
@@ -100,6 +108,30 @@ def test_normalize_response_resolves_entities_and_preserves_provenance() -> None
     }
 
 
+def test_normalizer_accepts_persistent_sqlite_player_registry() -> None:
+    registry = SqlitePlayerRegistry(sqlite3.connect(":memory:"))
+    sinner = registry.add_player("Jannik Sinner")
+    alcaraz = registry.add_player("Carlos Alcaraz")
+    registry.add_alias(
+        provider=THE_ODDS_API_PROVIDER,
+        raw_name="J. Sinner",
+        player_id=sinner.player_id,
+    )
+    normalizer = OddsApiNormalizer(
+        player_resolver=registry,
+        tournaments=(Tournament("tournament-wimbledon", "ATP Wimbledon"),),
+        bookmakers=(Bookmaker("bookmaker-pinnacle", "Pinnacle"),),
+        tournament_aliases={
+            "tennis_atp_wimbledon": "tournament-wimbledon",
+        },
+        bookmaker_aliases={"pinnacle": "bookmaker-pinnacle"},
+    )
+
+    event = normalizer.normalize(make_response())[0]
+
+    assert event.match.player_ids == (sinner.player_id, alcaraz.player_id)
+
+
 def test_normalization_generates_stable_match_and_snapshot_ids() -> None:
     normalizer = make_normalizer()
 
@@ -117,9 +149,11 @@ def test_realistic_french_open_response_extracts_only_h2h_snapshots() -> None:
         collected_at=datetime(2025, 5, 31, 3, 23, tzinfo=UTC),
     )
     normalizer = OddsApiNormalizer(
-        players=(
-            Player(3001, "Tallon Griekspoor"),
-            Player(3002, "Ethan Quinn"),
+        player_resolver=InMemoryPlayerResolver(
+            players=(
+                Player(3001, "Tallon Griekspoor"),
+                Player(3002, "Ethan Quinn"),
+            )
         ),
         tournaments=(Tournament("french-open-atp", "ATP French Open"),),
         bookmakers=(
@@ -165,24 +199,42 @@ def test_unknown_player_is_not_silently_merged() -> None:
         make_normalizer().normalize(make_response(home_team="Unknown Player"))
 
 
+def test_unknown_outcome_player_keeps_entity_resolution_error() -> None:
+    outcomes = [
+        {"name": "Unknown Player", "price": 1.8},
+        {"name": "Carlos Alcaraz", "price": 2.1},
+    ]
+
+    with pytest.raises(UnknownEntityError, match="Unknown Player"):
+        make_normalizer().normalize(make_response(outcomes=outcomes))
+
+
 def test_alias_collision_is_rejected_as_ambiguous() -> None:
-    with pytest.raises(AmbiguousEntityError, match="ambiguous player"):
-        OddsApiNormalizer(
-            players=(
-                Player(1, "Same Name"),
-                Player(2, "Different Name"),
-            ),
-            tournaments=(Tournament("tournament", "Tournament"),),
-            bookmakers=(Bookmaker("bookmaker", "Bookmaker"),),
-            player_aliases={"same name": 2},
+    resolver = InMemoryPlayerResolver(
+        players=(
+            Player(1, "First Player"),
+            Player(2, "Second Player"),
+        ),
+        aliases=(
+            PlayerAlias(THE_ODDS_API_PROVIDER, "Same Name", 1),
+            PlayerAlias(THE_ODDS_API_PROVIDER, "Same Name", 2),
+        ),
+    )
+
+    with pytest.raises(AmbiguousEntityError, match="multiple IDs"):
+        resolver.resolve(
+            provider=THE_ODDS_API_PROVIDER,
+            raw_name="Same Name",
         )
 
 
 def test_same_surname_players_keep_distinct_ids_and_display_names() -> None:
     normalizer = OddsApiNormalizer(
-        players=(
-            Player(2001, "Serena Williams"),
-            Player(2002, "Venus Williams"),
+        player_resolver=InMemoryPlayerResolver(
+            players=(
+                Player(2001, "Serena Williams"),
+                Player(2002, "Venus Williams"),
+            )
         ),
         tournaments=(Tournament("tournament-wimbledon", "ATP Wimbledon"),),
         bookmakers=(Bookmaker("bookmaker-pinnacle", "Pinnacle"),),

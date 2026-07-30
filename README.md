@@ -40,8 +40,18 @@ human-readable name shown to users. Two players may therefore share a surname
 without sharing an identity. A surname-only provider value is still rejected
 when it cannot be resolved safely.
 
-The catalog is currently supplied in memory when constructing
-`OddsApiNormalizer`. Persistent entity and alias storage is a later concern.
+Player identity resolution is separated from provider normalization.
+`InMemoryPlayerResolver` supplies deterministic catalogs for tests, while
+`SqlitePlayerRegistry` creates persistent numeric player IDs and stores:
+
+- provider-scoped aliases;
+- opaque provider player IDs when a source supplies them; and
+- unknown or ambiguous names for later review.
+
+Resolution checks a provider player ID first, then an approved provider alias,
+then an exact canonical display name. It never creates a player merely because
+an unknown name appeared in an odds response. The resolver is injected into
+`OddsApiNormalizer`, keeping database access out of the provider parsing logic.
 
 The Odds API request may include `h2h`, `spreads`, and `totals` together. This
 project currently normalizes only the `h2h` match-winner market; the other

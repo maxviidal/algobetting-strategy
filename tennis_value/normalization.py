@@ -1,12 +1,9 @@
 """Resolve raw Odds API names into validated, normalized domain records."""
 
-from collections.abc import Callable, Hashable, Iterable, Mapping
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
-from types import MappingProxyType
-from typing import Protocol
-from unicodedata import normalize as unicode_normalize
 from uuid import UUID, uuid5
 
 from tennis_value.domain import (
@@ -14,9 +11,12 @@ from tennis_value.domain import (
     Match,
     MatchWinnerPrice,
     OddsSnapshot,
-    Player,
-    PlayerId,
     Tournament,
+)
+from tennis_value.entity_resolution import (
+    THE_ODDS_API_PROVIDER,
+    EntityResolver,
+    PlayerResolver,
 )
 from tennis_value.ingestion import IngestedOddsApiResponse, JsonValue, OddsApiEvent
 
@@ -27,89 +27,8 @@ class NormalizationError(ValueError):
     """Base error for input that cannot be normalized safely."""
 
 
-class UnknownEntityError(NormalizationError):
-    """Raised when a raw name has no registered entity or alias."""
-
-
-class AmbiguousEntityError(NormalizationError):
-    """Raised when a lookup could refer to multiple registered entities."""
-
-
 class InvalidMarketError(NormalizationError):
     """Raised when an event or market is incomplete or inconsistent."""
-
-
-class IdentifiedEntity(Protocol):
-    """The fields required by the internal entity resolver."""
-
-    @property
-    def display_name(self) -> str: ...
-
-
-def normalized_name(value: str) -> str:
-    """Build a conservative key without discarding meaningful accents."""
-
-    return " ".join(unicode_normalize("NFKC", value).casefold().split())
-
-
-class _EntityResolver[EntityT: IdentifiedEntity, EntityIdT: Hashable]:
-    def __init__(
-        self,
-        entity_type: str,
-        entities: Iterable[EntityT],
-        aliases: Mapping[str, EntityIdT],
-        id_of: Callable[[EntityT], EntityIdT],
-    ) -> None:
-        self._entity_type = entity_type
-        entities_by_id: dict[EntityIdT, EntityT] = {}
-        names: dict[str, set[EntityIdT]] = {}
-
-        for entity in entities:
-            entity_id = id_of(entity)
-            if entity_id in entities_by_id:
-                raise ValueError(f"duplicate {entity_type} ID {entity_id!r}")
-            entities_by_id[entity_id] = entity
-            names.setdefault(normalized_name(entity.display_name), set()).add(entity_id)
-
-        for alias, entity_id in aliases.items():
-            if entity_id not in entities_by_id:
-                raise ValueError(
-                    f"{entity_type} alias {alias!r} references unknown ID {entity_id!r}"
-                )
-            names.setdefault(normalized_name(alias), set()).add(entity_id)
-
-        ambiguous = {name: ids for name, ids in names.items() if len(ids) > 1}
-        if ambiguous:
-            name, entity_ids = next(iter(ambiguous.items()))
-            raise AmbiguousEntityError(
-                f"ambiguous {entity_type} name {name!r} maps to "
-                f"{_display_ids(entity_ids)}"
-            )
-
-        self._entities_by_id = MappingProxyType(entities_by_id)
-        self._id_by_name = MappingProxyType(
-            {name: next(iter(entity_ids)) for name, entity_ids in names.items()}
-        )
-
-    def resolve_any(self, *raw_names: str) -> EntityT:
-        entity_ids = {
-            entity_id
-            for raw_name in raw_names
-            if (
-                entity_id := self._id_by_name.get(normalized_name(raw_name))
-            ) is not None
-        }
-        if not entity_ids:
-            raise UnknownEntityError(
-                f"unknown {self._entity_type} name(s) {raw_names!r}; "
-                "register the entity or an explicit alias"
-            )
-        if len(entity_ids) > 1:
-            raise AmbiguousEntityError(
-                f"{self._entity_type} names {raw_names!r} resolve to different IDs "
-                f"{_display_ids(entity_ids)}"
-            )
-        return self._entities_by_id[next(iter(entity_ids))]
 
 
 @dataclass(frozen=True, slots=True)
@@ -121,28 +40,25 @@ class NormalizedMatchWinnerEvent:
 
 
 class OddsApiNormalizer:
-    """Normalize ingested Odds API events using an explicit entity catalog."""
+    """Normalize Odds API events using injected player identity resolution."""
 
     def __init__(
         self,
         *,
-        players: Iterable[Player],
+        player_resolver: PlayerResolver,
         tournaments: Iterable[Tournament],
         bookmakers: Iterable[Bookmaker],
-        player_aliases: Mapping[str, PlayerId] | None = None,
         tournament_aliases: Mapping[str, str] | None = None,
         bookmaker_aliases: Mapping[str, str] | None = None,
     ) -> None:
-        self._players = _EntityResolver(
-            "player", players, player_aliases or {}, lambda player: player.player_id
-        )
-        self._tournaments = _EntityResolver(
+        self._player_resolver = player_resolver
+        self._tournaments = EntityResolver(
             "tournament",
             tournaments,
             tournament_aliases or {},
             lambda tournament: tournament.tournament_id,
         )
-        self._bookmakers = _EntityResolver(
+        self._bookmakers = EntityResolver(
             "bookmaker",
             bookmakers,
             bookmaker_aliases or {},
@@ -178,9 +94,15 @@ class OddsApiNormalizer:
         )
 
         tournament = self._tournaments.resolve_any(sport_key, sport_title)
-        home_player = self._players.resolve_any(home_name)
-        away_player = self._players.resolve_any(away_name)
-        player_ids = (home_player.player_id, away_player.player_id)
+        home_player_id = self._player_resolver.resolve(
+            provider=THE_ODDS_API_PROVIDER,
+            raw_name=home_name,
+        )
+        away_player_id = self._player_resolver.resolve(
+            provider=THE_ODDS_API_PROVIDER,
+            raw_name=away_name,
+        )
+        player_ids = (home_player_id, away_player_id)
         if len(set(player_ids)) != 2:
             raise InvalidMarketError(
                 f"{context} participants resolve to the same player ID"
@@ -291,9 +213,13 @@ class OddsApiNormalizer:
         raw_price = raw_outcome.get("price")
         if isinstance(raw_price, bool) or not isinstance(raw_price, int | float):
             raise InvalidMarketError(f"{context}.price must be a JSON number")
+        player_id = self._player_resolver.resolve(
+            provider=THE_ODDS_API_PROVIDER,
+            raw_name=participant_name,
+        )
         try:
             price = MatchWinnerPrice(
-                player_id=self._players.resolve_any(participant_name).player_id,
+                player_id=player_id,
                 decimal_odds=Decimal(str(raw_price)),
             )
         except (InvalidOperation, ValueError) as error:
@@ -342,7 +268,3 @@ def _parse_timestamp(value: str, field_name: str) -> datetime:
 
 def _stable_id(record_type: str, *parts: str) -> str:
     return str(uuid5(_ID_NAMESPACE, "|".join((record_type, *parts))))
-
-
-def _display_ids(entity_ids: Iterable[Hashable]) -> str:
-    return repr(sorted(repr(entity_id) for entity_id in entity_ids))
