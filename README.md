@@ -62,6 +62,36 @@ for its snapshot.
 API keys must be read from the `ODDS_API_KEY` environment variable at request
 time. Never place a real key in source code, fixtures, logs, or a committed URL.
 
+## Market pricing and value signals
+
+The first pricing model is an explainable market-consensus baseline. For a
+specified UTC decision time, `tennis_value.signals.evaluate_market` selects the
+latest non-stale snapshot from every bookmaker and requires at least five
+eligible bookmakers in total. A quote observed after the decision time is never
+used.
+
+Each complete two-player market is converted from decimal odds to implied
+probabilities and proportionally normalized so its fair probabilities sum to
+one. Every offered outcome is then compared with the median fair probability
+from all other eligible bookmakers. The evaluated bookmaker is excluded from
+its own benchmark.
+
+Expected value is reported per unit staked:
+
+```text
+expected_value = offered_odds * consensus_probability - 1
+```
+
+All eligible offers are returned for research, including those below the signal
+threshold. Quality flags identify unusually large edges, suspicious market
+overround, and wide peer disagreement without deleting the observation. These
+are research signals, not guarantees or instructions to place a bet.
+
+The settings in `configs/development.toml` and `configs/research.toml` control
+quote age, minimum bookmaker coverage, the candidate threshold, and diagnostic
+boundaries. Pricing v1 supports proportional margin removal, median consensus,
+and leave-one-bookmaker-out evaluation only.
+
 ## Development
 
 The project targets Python 3.12.

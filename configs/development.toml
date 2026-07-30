@@ -1,5 +1,5 @@
 [collection]
-minimum_bookmakers = 2
+minimum_bookmakers = 5
 maximum_quote_age_seconds = 300
 
 [pricing]
@@ -9,3 +9,9 @@ leave_one_bookmaker_out = true
 
 [signals]
 minimum_expected_value = 0.03
+
+[quality]
+review_expected_value = 0.20
+minimum_normal_overround = 0.98
+maximum_normal_overround = 1.15
+maximum_peer_probability_range = 0.10
