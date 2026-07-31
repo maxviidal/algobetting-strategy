@@ -4,10 +4,11 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
-import tennis_value.odds_api as odds_api_module
+
+import tennis_value.data.odds_api as odds_api_module
 from tennis_value.cli import main
-from tennis_value.ingestion import ingest_odds_api_json
-from tennis_value.storage import SqliteOddsRepository
+from tennis_value.data.ingestion import ingest_odds_api_json
+from tennis_value.data.storage import SqliteOddsRepository
 
 
 def test_sports_command_lists_only_active_tennis_keys(

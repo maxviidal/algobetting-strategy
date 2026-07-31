@@ -3,12 +3,13 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 import pytest
+
 from tennis_value.config import (
     AppSettings,
     QualitySettings,
     SignalSettings,
 )
-from tennis_value.domain import Match, MatchWinnerPrice, OddsSnapshot
+from tennis_value.data.domain import Match, MatchWinnerPrice, OddsSnapshot
 from tennis_value.signals import (
     ConflictingSnapshotsError,
     ExclusionReason,
@@ -85,6 +86,28 @@ def test_five_books_produce_two_evaluations_each_with_four_peers() -> None:
     ]
     for evaluation in result.evaluations:
         assert evaluation.snapshot_id not in evaluation.peer_snapshot_ids
+
+
+def test_allow_stale_quotes_keeps_latest_pre_decision_markets() -> None:
+    stale_snapshots = tuple(
+        make_snapshot(
+            bookmaker,
+            observed_at=DECISION_AT - timedelta(hours=4),
+        )
+        for bookmaker in ("a", "b", "c", "d", "e")
+    )
+
+    result = evaluate_market(
+        MATCH,
+        stale_snapshots,
+        decision_at=DECISION_AT,
+        calculated_at=CALCULATED_AT,
+        settings=AppSettings(),
+        allow_stale_quotes=True,
+    )
+
+    assert result.eligible_bookmaker_count == 5
+    assert len(result.evaluations) == 10
 
 
 def test_six_books_use_all_five_peers() -> None:

@@ -1,7 +1,8 @@
-# Tennis Value
+# Algobetting Strategy
 
 Research software for identifying and backtesting potential value in
-professional tennis match-winner markets.
+professional sports betting markets. Tennis is the first implemented model;
+basketball will remain a separate model as it is added.
 
 The project will collect point-in-time bookmaker odds, normalize the underlying
 events, remove bookmaker margins, construct a robust market consensus, and flag
@@ -15,7 +16,9 @@ built. It does not place bets and does not claim guaranteed profitability. See
 
 ```text
 configs/       Research settings
-tennis_value/  Application code
+src/
+  tennis_value/ Tennis-specific application code
+    data/       Ingestion, normalization, domain records, and persistence
 tests/         Automated tests
 ```
 
@@ -23,9 +26,10 @@ New modules and directories should be added only when working code needs them.
 
 ## Normalization
 
-The first normalization layer is implemented in `tennis_value/normalization.py`.
+The first normalization layer is implemented in
+`src/tennis_value/data/normalization.py`.
 It converts retained Odds API events into immutable records from
-`tennis_value/domain.py`.
+`src/tennis_value/data/domain.py`.
 
 Entity matching is intentionally conservative. Players, tournaments, and
 bookmakers must be present in an explicit catalog, and provider-specific names
@@ -188,7 +192,7 @@ of that fraction of available equity. It chooses a single highest-EV candidate
 per match so it never backs both players, and prevents overlapping matches from
 committing the same cash twice.
 
-`tennis_value.odds_papi.OddsPapiClient` validates the OddsPapi key and retrieves
+`tennis_value.data.odds_papi.OddsPapiClient` validates the OddsPapi key and retrieves
 fixture-scoped historical price timelines. Its historical endpoint accepts a
 maximum of three bookmaker slugs at a time, so a nine-book whitelist is fetched
 as three provenance-preserving requests. The selected book whitelist and its
@@ -203,7 +207,11 @@ provider-normalized match-result feed.
 
 The runnable OddsPapi workflow uses the Wimbledon Men Singles tournament
 (`2555`), the nine validated sportsbooks, and a fixed decision time of 60
-minutes before scheduled start. It evaluates the market with
+minutes before scheduled start. It uses the scheduled `startTime` from the
+fixture—not `trueStartTime`—and selects each bookmaker's latest valid
+match-winner odds known at or before that decision time. This historical
+workflow deliberately has no quote-age cutoff; it still excludes all odds
+observed after the decision time. It evaluates the market with
 `configs/research.toml`, starts with `10000` equity, and stakes 25% of the
 full-Kelly fraction.
 
@@ -239,6 +247,25 @@ three groups of three bookmakers and follow the provider cooldown. Subsequent
 runs use the local cache and normally make no requests. Do not delete a partial
 cache merely to restart: rerun the same command and it will continue from the
 last valid response.
+
+### Export the 127-match dataset to CSV
+
+After the raw cache is complete, create two Excel- or Numbers-ready CSV files
+without contacting OddsPapi:
+
+```bash
+python -m tennis_value export-atp-wimbledon-csv \
+  --config configs/research.toml \
+  --cache-directory data/oddspapi/wimbledon_atp_2026 \
+  --output-directory reports/wimbledon_atp_2026
+```
+
+`wimbledon_atp_2026_matches.csv` has one row per fixture, including players,
+scheduled and decision times, settlement, bookmaker coverage, candidate count,
+and any selected 25%-Kelly bet. `wimbledon_atp_2026_offers.csv` has one row per
+evaluated player/bookmaker offer, including observed time, de-vigged overround,
+leave-one-out consensus, EV, peer range, flags, and Kelly/settlement details
+where that offer was selected.
 
 ## Development
 

@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
 
-from tennis_value.domain import PlayerId
+from tennis_value.data.domain import PlayerId
 from tennis_value.pricing import DeViggedMarket, fair_odds
 
 MEDIAN_CONSENSUS_METHOD = "median"

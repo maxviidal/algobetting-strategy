@@ -2,8 +2,9 @@ from datetime import UTC, datetime
 from urllib.parse import parse_qs, urlparse
 
 import pytest
-import tennis_value.odds_papi as odds_papi_module
-from tennis_value.odds_papi import OddsPapiClient, OddsPapiError
+
+import tennis_value.data.odds_papi as odds_papi_module
+from tennis_value.data.odds_papi import OddsPapiClient, OddsPapiError
 
 
 def test_historical_requests_nine_books_in_three_groups(

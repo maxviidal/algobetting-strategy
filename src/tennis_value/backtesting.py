@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from enum import StrEnum
 
-from tennis_value.domain import PlayerId
+from tennis_value.data.domain import PlayerId
 from tennis_value.signals import OfferEvaluation
 
 DEFAULT_EXCLUDED_BOOKMAKERS = frozenset(

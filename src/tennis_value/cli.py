@@ -16,11 +16,14 @@ from tennis_value.config import (
     load_env_file,
     load_settings,
 )
-from tennis_value.ingestion import IngestionError
-from tennis_value.odds_api import OddsApiClient, OddsApiError, OddsApiQuota
-from tennis_value.odds_papi import OddsPapiClient, OddsPapiError
-from tennis_value.oddspapi_backtest import run_atp_wimbledon_backtest
-from tennis_value.storage import SqliteOddsRepository, SqlitePlayerRegistry
+from tennis_value.data.ingestion import IngestionError
+from tennis_value.data.odds_api import OddsApiClient, OddsApiError, OddsApiQuota
+from tennis_value.data.odds_papi import OddsPapiClient, OddsPapiError
+from tennis_value.data.storage import SqliteOddsRepository, SqlitePlayerRegistry
+from tennis_value.oddspapi_backtest import (
+    export_atp_wimbledon_csv,
+    run_atp_wimbledon_backtest,
+)
 from tennis_value.workflow import (
     PendingPlayersError,
     WorkflowError,
@@ -36,7 +39,7 @@ _DEFAULT_DATABASE = "data/tennis_value.sqlite3"
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    """Run the tennis-value command line interface."""
+    """Run the Algobetting Strategy tennis command-line interface."""
 
     parser = _build_parser()
     arguments = parser.parse_args(argv)
@@ -81,6 +84,12 @@ def main(argv: Sequence[str] | None = None) -> int:
                 config_path=Path(arguments.config),
                 cache_directory=Path(arguments.cache_directory),
             )
+        if arguments.command == "export-atp-wimbledon-csv":
+            return _export_atp_wimbledon_csv(
+                config_path=Path(arguments.config),
+                cache_directory=Path(arguments.cache_directory),
+                output_directory=Path(arguments.output_directory),
+            )
     except PendingPlayersError as error:
         print(f"error: {error}", file=sys.stderr)
         print(
@@ -108,7 +117,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="tennis-value",
+        prog="algobetting-strategy",
         description="Collect and evaluate point-in-time tennis odds.",
     )
     parser.add_argument(
@@ -217,6 +226,25 @@ def _build_parser() -> argparse.ArgumentParser:
         "--cache-directory",
         default="data/oddspapi/wimbledon_atp_2026",
         help="raw response cache for safe resume",
+    )
+    export = commands.add_parser(
+        "export-atp-wimbledon-csv",
+        help="export cached ATP Wimbledon 2026 model data to CSV without API calls",
+    )
+    export.add_argument(
+        "--config",
+        default="configs/research.toml",
+        help="typed model configuration path",
+    )
+    export.add_argument(
+        "--cache-directory",
+        default="data/oddspapi/wimbledon_atp_2026",
+        help="raw response cache produced by the Wimbledon backtest",
+    )
+    export.add_argument(
+        "--output-directory",
+        default="reports/wimbledon_atp_2026",
+        help="directory for the generated CSV files",
     )
     return parser
 
@@ -446,6 +474,8 @@ def _backtest_atp_wimbledon(
     report = run.report
     print("Tournament: ATP Wimbledon Men Singles 2026")
     print("Decision time: 60 minutes before scheduled start")
+    print("Quote selection: latest valid odds known at or before decision time")
+    print("Quote-age cutoff: none")
     print("Bookmakers: 9")
     print("Kelly fraction: 25%")
     print(f"Initial equity: {report.settings.initial_equity}")
@@ -465,6 +495,26 @@ def _backtest_atp_wimbledon(
     print(f"Hit rate: {_percent(report.hit_rate)}")
     print(f"Maximum drawdown: {report.maximum_drawdown}")
     print(f"Raw cache: {cache_directory.resolve()}")
+    return 0
+
+
+def _export_atp_wimbledon_csv(
+    *,
+    config_path: Path,
+    cache_directory: Path,
+    output_directory: Path,
+) -> int:
+    export = export_atp_wimbledon_csv(
+        model_settings=load_settings(config_path),
+        cache_directory=cache_directory,
+        output_directory=output_directory,
+    )
+    print("Tournament: ATP Wimbledon Men Singles 2026")
+    print("Source: existing local raw cache (no API requests)")
+    print(f"Matches exported: {export.match_rows}")
+    print(f"Offer evaluations exported: {export.offer_rows}")
+    print(f"Match summary CSV: {export.matches_path.resolve()}")
+    print(f"Offer detail CSV: {export.offers_path.resolve()}")
     return 0
 
 

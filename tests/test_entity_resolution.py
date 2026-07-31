@@ -1,6 +1,7 @@
 import pytest
-from tennis_value.domain import Player
-from tennis_value.entity_resolution import (
+
+from tennis_value.data.domain import Player
+from tennis_value.data.entity_resolution import (
     AmbiguousEntityError,
     InMemoryPlayerResolver,
     PlayerAlias,

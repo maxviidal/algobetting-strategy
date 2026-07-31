@@ -1,8 +1,9 @@
 from urllib.parse import parse_qs, urlparse
 
 import pytest
-import tennis_value.odds_api as odds_api_module
-from tennis_value.odds_api import OddsApiClient, OddsApiError
+
+import tennis_value.data.odds_api as odds_api_module
+from tennis_value.data.odds_api import OddsApiClient, OddsApiError
 
 
 def test_fetch_current_odds_builds_decimal_h2h_request_and_hides_key_in_source(

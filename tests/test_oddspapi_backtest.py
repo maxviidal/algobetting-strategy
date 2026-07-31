@@ -1,11 +1,13 @@
 import json
+from csv import DictReader
 from datetime import UTC, datetime
 from pathlib import Path
 
 from tennis_value.config import AppSettings, CollectionSettings
-from tennis_value.odds_papi import OddsPapiResponse
+from tennis_value.data.odds_papi import OddsPapiResponse
 from tennis_value.oddspapi_backtest import (
     WIMBLEDON_BOOKMAKERS,
+    export_atp_wimbledon_csv,
     run_atp_wimbledon_backtest,
 )
 
@@ -146,6 +148,38 @@ def test_complete_atp_wimbledon_run_and_cache_resume(tmp_path: Path) -> None:
 
     assert cached_run.report.final_equity == 11250
     assert cached_client.calls == []
+
+
+def test_export_writes_one_match_row_and_every_offer(tmp_path: Path) -> None:
+    client = FakeOddsPapiClient()
+    settings = AppSettings(
+        collection=CollectionSettings(maximum_quote_age_seconds=180)
+    )
+    run_atp_wimbledon_backtest(
+        client,  # type: ignore[arg-type]
+        model_settings=settings,
+        cache_directory=tmp_path / "cache",
+        sleep=lambda _: None,
+    )
+
+    export = export_atp_wimbledon_csv(
+        model_settings=settings,
+        cache_directory=tmp_path / "cache",
+        output_directory=tmp_path / "reports",
+    )
+
+    assert export.match_rows == 1
+    assert export.offer_rows == 18
+    with export.matches_path.open(newline="", encoding="utf-8") as file:
+        matches = list(DictReader(file))
+    with export.offers_path.open(newline="", encoding="utf-8") as file:
+        offers = list(DictReader(file))
+    assert len(matches) == 1
+    assert matches[0]["selected_player_name"] == "Player One"
+    assert matches[0]["settlement"] == "win"
+    assert len(offers) == 18
+    assert sum(row["selected_for_kelly"] == "True" for row in offers) == 1
+    assert {row["player_name"] for row in offers} == {"Player One", "Player Two"}
 
 
 def test_void_settlement_does_not_change_equity(tmp_path: Path) -> None:

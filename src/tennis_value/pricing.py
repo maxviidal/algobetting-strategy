@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
 
-from tennis_value.domain import OddsSnapshot, PlayerId
+from tennis_value.data.domain import OddsSnapshot, PlayerId
 
 PROPORTIONAL_MARGIN_METHOD = "proportional"
 

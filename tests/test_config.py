@@ -3,6 +3,7 @@ from decimal import Decimal
 from pathlib import Path
 
 import pytest
+
 from tennis_value.config import (
     ConfigurationError,
     get_odds_api_key,

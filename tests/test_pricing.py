@@ -2,7 +2,8 @@ from datetime import UTC, datetime
 from decimal import Decimal
 
 import pytest
-from tennis_value.domain import MatchWinnerPrice, OddsSnapshot
+
+from tennis_value.data.domain import MatchWinnerPrice, OddsSnapshot
 from tennis_value.pricing import expected_value, fair_odds, proportional_devig
 
 CALCULATED_AT = datetime(2026, 7, 30, 12, 0, tzinfo=UTC)

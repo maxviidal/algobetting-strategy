@@ -1,5 +1,6 @@
 """Resumable OddsPapi ATP Wimbledon 2026 backtest."""
 
+import csv
 import json
 import time
 from collections.abc import Callable
@@ -13,14 +14,15 @@ from typing import Any
 from tennis_value.backtesting import (
     KellyBacktestReport,
     KellySettings,
+    KellySettledBet,
     MatchResult,
     ResultStatus,
     backtest_kelly_candidates,
     select_best_candidates,
 )
 from tennis_value.config import AppSettings
-from tennis_value.domain import Match, MatchWinnerPrice, OddsSnapshot
-from tennis_value.odds_papi import OddsPapiClient, OddsPapiResponse
+from tennis_value.data.domain import Match, MatchWinnerPrice, OddsSnapshot
+from tennis_value.data.odds_papi import OddsPapiClient, OddsPapiResponse
 from tennis_value.signals import (
     InsufficientBookmakersError,
     OfferEvaluation,
@@ -69,6 +71,24 @@ class WimbledonBacktestRun:
     offer_evaluations: int
     candidates: int
     report: KellyBacktestReport
+
+
+@dataclass(frozen=True, slots=True)
+class WimbledonCsvExport:
+    """Paths and coverage counts for locally generated research exports."""
+
+    matches_path: Path
+    offers_path: Path
+    match_rows: int
+    offer_rows: int
+
+
+type EvaluatedFixture = tuple[
+    WimbledonFixture,
+    MatchResult,
+    tuple[OddsSnapshot, ...],
+    tuple[OfferEvaluation, ...],
+]
 
 
 def run_atp_wimbledon_backtest(
@@ -146,6 +166,7 @@ def run_atp_wimbledon_backtest(
                 decision_at=decision_at,
                 calculated_at=decision_at,
                 settings=model_settings,
+                allow_stale_quotes=True,
             )
         except InsufficientBookmakersError:
             skipped_matches += 1
@@ -172,6 +193,74 @@ def run_atp_wimbledon_backtest(
     )
 
 
+def export_atp_wimbledon_csv(
+    *,
+    model_settings: AppSettings,
+    cache_directory: Path,
+    output_directory: Path,
+) -> WimbledonCsvExport:
+    """Export cached ATP data to detailed match and offer CSV files.
+
+    This function makes no provider requests. Every fixture must already have a
+    settlement file and all three historical bookmaker batches in the cache.
+    """
+
+    fixtures = parse_fixtures(_read_cached(cache_directory / "fixtures.json"))
+    evaluated: list[EvaluatedFixture] = []
+    all_evaluations: list[OfferEvaluation] = []
+    results: dict[str, MatchResult] = {}
+    for fixture in fixtures:
+        settlement = parse_settlement(
+            fixture,
+            _read_cached(
+                cache_directory / "settlements" / f"{fixture.fixture_id}.json"
+            ),
+        )
+        payloads = tuple(
+            _read_cached(
+                cache_directory / "historical" / f"{fixture.fixture_id}_{index}.json"
+            )
+            for index in range(3)
+        )
+        snapshots = snapshots_at_sixty_minutes(fixture, payloads)
+        decision_at = fixture.scheduled_start - timedelta(minutes=60)
+        try:
+            market = evaluate_market(
+                match_for_fixture(fixture),
+                snapshots,
+                decision_at=decision_at,
+                calculated_at=decision_at,
+                settings=model_settings,
+                allow_stale_quotes=True,
+            )
+        except InsufficientBookmakersError:
+            market_evaluations: tuple[OfferEvaluation, ...] = ()
+        else:
+            market_evaluations = market.evaluations
+        results[fixture.fixture_id] = settlement
+        all_evaluations.extend(market_evaluations)
+        evaluated.append((fixture, settlement, snapshots, market_evaluations))
+
+    selected = select_best_candidates(all_evaluations, excluded_bookmakers=frozenset())
+    report = backtest_kelly_candidates(
+        selected,
+        results,
+        settings=KellySettings(Decimal("10000"), Decimal("0.25")),
+    )
+    bet_by_match = {bet.candidate.match_id: bet for bet in report.bets}
+    output_directory.mkdir(parents=True, exist_ok=True)
+    matches_path = output_directory / "wimbledon_atp_2026_matches.csv"
+    offers_path = output_directory / "wimbledon_atp_2026_offers.csv"
+    _write_matches_csv(matches_path, evaluated, bet_by_match)
+    _write_offers_csv(offers_path, evaluated, bet_by_match)
+    return WimbledonCsvExport(
+        matches_path=matches_path,
+        offers_path=offers_path,
+        match_rows=len(evaluated),
+        offer_rows=len(all_evaluations),
+    )
+
+
 @dataclass(frozen=True, slots=True)
 class _CachedPayload:
     raw_bytes: bytes
@@ -193,6 +282,146 @@ def _cached_response(
     temporary.write_bytes(response.raw_bytes)
     temporary.replace(path)
     return _CachedPayload(response.raw_bytes, False)
+
+
+def _read_cached(path: Path) -> bytes:
+    if not path.is_file():
+        raise FileNotFoundError(f"required cached response is missing: {path}")
+    raw_bytes = path.read_bytes()
+    _json(raw_bytes)
+    return raw_bytes
+
+
+def _write_matches_csv(
+    path: Path,
+    evaluated: list[EvaluatedFixture],
+    bet_by_match: dict[str, KellySettledBet],
+) -> None:
+    fields = (
+        "fixture_id", "scheduled_start", "decision_at", "player_one_id",
+        "player_one_name", "player_two_id", "player_two_name", "result_status",
+        "winner_player_id", "winner_name", "eligible_bookmakers", "bookmakers",
+        "offers_evaluated", "candidate_offers", "selected_player_id",
+        "selected_player_name", "selected_bookmaker", "selected_odds", "selected_ev",
+        "kelly_stake", "settlement", "profit", "equity_after", "drawdown",
+    )
+    with path.open("w", newline="", encoding="utf-8") as file:
+        writer = csv.DictWriter(file, fieldnames=fields)
+        writer.writeheader()
+        for fixture, result, snapshots, offers in evaluated:
+            player_names = {
+                fixture.player_one_id: fixture.player_one_name,
+                fixture.player_two_id: fixture.player_two_name,
+            }
+            bet = bet_by_match.get(fixture.fixture_id)
+            candidate = bet.candidate if bet is not None else None
+            writer.writerow({
+                "fixture_id": fixture.fixture_id,
+                "scheduled_start": fixture.scheduled_start.isoformat(),
+                "decision_at": (
+                    fixture.scheduled_start - timedelta(minutes=60)
+                ).isoformat(),
+                "player_one_id": fixture.player_one_id,
+                "player_one_name": fixture.player_one_name,
+                "player_two_id": fixture.player_two_id,
+                "player_two_name": fixture.player_two_name,
+                "result_status": result.status.value,
+                "winner_player_id": result.winner_player_id or "",
+                "winner_name": (
+                    player_names[result.winner_player_id]
+                    if result.winner_player_id is not None
+                    else ""
+                ),
+                "eligible_bookmakers": len(snapshots),
+                "bookmakers": ",".join(snapshot.bookmaker_id for snapshot in snapshots),
+                "offers_evaluated": len(offers),
+                "candidate_offers": sum(offer.is_candidate for offer in offers),
+                "selected_player_id": candidate.player_id if candidate else "",
+                "selected_player_name": (
+                    player_names[candidate.player_id] if candidate else ""
+                ),
+                "selected_bookmaker": candidate.bookmaker_id if candidate else "",
+                "selected_odds": candidate.offered_odds if candidate else "",
+                "selected_ev": candidate.expected_value if candidate else "",
+                "kelly_stake": bet.stake if bet else "",
+                "settlement": bet.status.value if bet else "",
+                "profit": bet.profit if bet else "",
+                "equity_after": bet.available_equity_after if bet else "",
+                "drawdown": bet.drawdown if bet else "",
+            })
+
+
+def _write_offers_csv(
+    path: Path,
+    evaluated: list[EvaluatedFixture],
+    bet_by_match: dict[str, KellySettledBet],
+) -> None:
+    fields = (
+        "fixture_id", "scheduled_start", "decision_at", "bookmaker", "snapshot_id",
+        "quote_observed_at", "player_id", "player_name", "opponent_name",
+        "offered_odds",
+        "bookmaker_overround", "consensus_probability", "consensus_fair_odds",
+        "expected_value", "is_candidate", "peer_count", "peer_bookmaker_snapshots",
+        "peer_min_probability", "peer_max_probability", "peer_probability_range",
+        "quality_flags", "selected_for_kelly", "kelly_stake", "settlement", "profit",
+    )
+    with path.open("w", newline="", encoding="utf-8") as file:
+        writer = csv.DictWriter(file, fieldnames=fields)
+        writer.writeheader()
+        for fixture, _, snapshots, offers in evaluated:
+            player_names = {
+                fixture.player_one_id: fixture.player_one_name,
+                fixture.player_two_id: fixture.player_two_name,
+            }
+            observed_at = {
+                snapshot.snapshot_id: snapshot.observed_at
+                for snapshot in snapshots
+            }
+            bet = bet_by_match.get(fixture.fixture_id)
+            selected = bet.candidate if bet is not None else None
+            for offer in offers:
+                is_selected = (
+                    selected is not None
+                    and offer.snapshot_id == selected.snapshot_id
+                    and offer.player_id == selected.player_id
+                )
+                writer.writerow({
+                    "fixture_id": fixture.fixture_id,
+                    "scheduled_start": fixture.scheduled_start.isoformat(),
+                    "decision_at": (
+                        fixture.scheduled_start - timedelta(minutes=60)
+                    ).isoformat(),
+                    "bookmaker": offer.bookmaker_id,
+                    "snapshot_id": offer.snapshot_id,
+                    "quote_observed_at": observed_at[offer.snapshot_id].isoformat(),
+                    "player_id": offer.player_id,
+                    "player_name": player_names[offer.player_id],
+                    "opponent_name": player_names[
+                        next(
+                            player_id
+                            for player_id in player_names
+                            if player_id != offer.player_id
+                        )
+                    ],
+                    "offered_odds": offer.offered_odds,
+                    "bookmaker_overround": offer.target_overround,
+                    "consensus_probability": offer.consensus_probability,
+                    "consensus_fair_odds": offer.consensus_fair_odds,
+                    "expected_value": offer.expected_value,
+                    "is_candidate": offer.is_candidate,
+                    "peer_count": offer.peer_count,
+                    "peer_bookmaker_snapshots": ",".join(offer.peer_snapshot_ids),
+                    "peer_min_probability": offer.minimum_peer_probability,
+                    "peer_max_probability": offer.maximum_peer_probability,
+                    "peer_probability_range": offer.peer_probability_range,
+                    "quality_flags": ",".join(
+                        flag.value for flag in offer.quality_flags
+                    ),
+                    "selected_for_kelly": is_selected,
+                    "kelly_stake": bet.stake if is_selected and bet else "",
+                    "settlement": bet.status.value if is_selected and bet else "",
+                    "profit": bet.profit if is_selected and bet else "",
+                })
 
 
 def parse_fixtures(raw_bytes: bytes) -> tuple[WimbledonFixture, ...]:

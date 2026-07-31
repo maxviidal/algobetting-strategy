@@ -2,7 +2,8 @@ from datetime import UTC, datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
-from tennis_value.ingestion import (
+
+from tennis_value.data.ingestion import (
     InvalidCollectionTimeError,
     InvalidJsonError,
     InvalidOddsApiPayloadError,

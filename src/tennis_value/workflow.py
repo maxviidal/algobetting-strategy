@@ -5,28 +5,28 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
 from tennis_value.config import AppSettings
-from tennis_value.domain import Bookmaker, Match, Player, Tournament
-from tennis_value.entity_resolution import (
+from tennis_value.data.domain import Bookmaker, Match, Player, Tournament
+from tennis_value.data.entity_resolution import (
     THE_ODDS_API_PROVIDER,
     EntityResolutionError,
     normalized_name,
 )
-from tennis_value.ingestion import (
+from tennis_value.data.ingestion import (
     IngestedOddsApiResponse,
     JsonValue,
     ingest_odds_api_json,
 )
-from tennis_value.normalization import OddsApiNormalizer
-from tennis_value.signals import (
-    InsufficientBookmakersError,
-    MarketEvaluationResult,
-    evaluate_market,
-)
-from tennis_value.storage import (
+from tennis_value.data.normalization import OddsApiNormalizer
+from tennis_value.data.storage import (
     SqliteOddsRepository,
     SqlitePlayerRegistry,
     StoredRawOddsResponse,
     UnresolvedPlayerName,
+)
+from tennis_value.signals import (
+    InsufficientBookmakersError,
+    MarketEvaluationResult,
+    evaluate_market,
 )
 
 

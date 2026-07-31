@@ -2,11 +2,12 @@ from datetime import UTC, datetime
 from decimal import Decimal
 
 import pytest
+
 from tennis_value.consensus import (
     leave_one_out_median_consensus,
     median_probability,
 )
-from tennis_value.domain import MatchWinnerPrice, OddsSnapshot
+from tennis_value.data.domain import MatchWinnerPrice, OddsSnapshot
 from tennis_value.pricing import DeViggedMarket, proportional_devig
 
 CALCULATED_AT = datetime(2026, 7, 30, 12, 0, tzinfo=UTC)

@@ -2,6 +2,7 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 import pytest
+
 from tennis_value.backtesting import (
     KellySettings,
     MatchResult,

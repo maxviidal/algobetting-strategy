@@ -1,11 +1,12 @@
 import sqlite3
 
 import pytest
-from tennis_value.entity_resolution import (
+
+from tennis_value.data.entity_resolution import (
     AmbiguousEntityError,
     UnknownEntityError,
 )
-from tennis_value.storage import SqlitePlayerRegistry
+from tennis_value.data.storage import SqlitePlayerRegistry
 
 
 @pytest.fixture

@@ -5,8 +5,9 @@ from decimal import Decimal
 from pathlib import Path
 
 import pytest
-from tennis_value.domain import Bookmaker, Player, Tournament
-from tennis_value.entity_resolution import (
+
+from tennis_value.data.domain import Bookmaker, Player, Tournament
+from tennis_value.data.entity_resolution import (
     THE_ODDS_API_PROVIDER,
     AmbiguousEntityError,
     InMemoryPlayerResolver,
@@ -14,13 +15,13 @@ from tennis_value.entity_resolution import (
     UnknownEntityError,
     normalized_name,
 )
-from tennis_value.ingestion import (
+from tennis_value.data.ingestion import (
     IngestedOddsApiResponse,
     ingest_odds_api_json,
     load_odds_api_json,
 )
-from tennis_value.normalization import InvalidMarketError, OddsApiNormalizer
-from tennis_value.storage import SqlitePlayerRegistry
+from tennis_value.data.normalization import InvalidMarketError, OddsApiNormalizer
+from tennis_value.data.storage import SqlitePlayerRegistry
 
 
 def make_normalizer() -> OddsApiNormalizer:
