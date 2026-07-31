@@ -13,6 +13,7 @@ dependencies = []
 
 [project.scripts]
 algobetting-strategy = "tennis_value.cli:main"
+basketball-value = "basketball_value.cli:main"
 
 [project.optional-dependencies]
 dev = [
@@ -22,7 +23,7 @@ dev = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/tennis_value"]
+packages = ["src/betting_core", "src/tennis_value", "src/basketball_value"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

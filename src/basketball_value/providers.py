@@ -13,6 +13,14 @@ class BasketballProviderError(RuntimeError):
     """Provider request or response failure."""
 
 
+class BasketballRateLimitError(BasketballProviderError):
+    """Provider rate limit response with an optional requested wait."""
+
+    def __init__(self, retry_after_seconds: float | None = None) -> None:
+        super().__init__("provider rate limit reached")
+        self.retry_after_seconds = retry_after_seconds
+
+
 @dataclass(frozen=True, slots=True)
 class ProviderResponse:
     raw_bytes: bytes
@@ -98,6 +106,15 @@ def _open(request: Request, timeout: float) -> ProviderResponse:
         with urlopen(request, timeout=timeout) as response:  # noqa: S310
             raw = response.read()
     except HTTPError as error:
+        if error.code == 429:
+            retry_after = error.headers.get("Retry-After")
+            try:
+                retry_after_seconds = (
+                    float(retry_after) if retry_after is not None else None
+                )
+            except ValueError:
+                retry_after_seconds = None
+            raise BasketballRateLimitError(retry_after_seconds) from error
         raise BasketballProviderError(
             f"provider returned HTTP {error.code}"
         ) from error

@@ -138,6 +138,7 @@ def build_summary(
             "quarantined_event_ids": dataset.quarantined_event_ids,
             "market_exclusion_count": len(dataset.market_exclusions),
             "market_exclusions": dataset.market_exclusions,
+            "result_quarantines": dataset.result_quarantines,
             "result_match_rate": match_rate,
             "games_with_entry_coverage": run.games_with_entry_coverage,
             "entry_coverage_rate": entry_coverage,

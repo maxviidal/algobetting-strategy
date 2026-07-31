@@ -1,0 +1,38 @@
+[competition]
+sport_key = "basketball_nba"
+league = "NBA"
+regular_season_only = true
+season_start_years = [2021, 2022, 2023, 2024, 2025]
+development_seasons = ["2021-22", "2022-23", "2023-24"]
+validation_seasons = ["2024-25"]
+holdout_seasons = ["2025-26"]
+
+[market]
+regions = ["eu"]
+market_key = "h2h"
+odds_format = "decimal"
+include_overtime = true
+exclude_exchanges = true
+
+[selection]
+entry_minutes_before_tip = 60
+closing_minutes_before_tip = 5
+maximum_quote_age_minutes = 30
+minimum_bookmakers = 5
+margin_method = "proportional"
+consensus_method = "median"
+leave_one_out = true
+primary_ev_threshold = 0.05
+development_thresholds = [0.02, 0.03, 0.075, 0.10]
+maximum_candidates_per_game = 1
+
+[staking]
+unit_stake = 1.0
+kelly_fraction = 0.25
+kelly_starting_equity = 10000.0
+
+[acceptance]
+minimum_result_match_rate = 0.98
+minimum_entry_coverage_rate = 0.80
+minimum_holdout_candidates = 300
+confidence_level = 0.95

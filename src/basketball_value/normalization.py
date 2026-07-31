@@ -50,9 +50,12 @@ def normalize_balldontlie_games(payloads: tuple[object, ...]) -> tuple[ResultGam
             event_id = str(raw.get("id", ""))
             if not event_id or event_id in seen or raw.get("postseason") is True:
                 continue
+            scheduled_value = raw.get("datetime")
+            if not isinstance(scheduled_value, str) or not scheduled_value:
+                continue
             home = _balldontlie_team(raw.get("home_team"))
             away = _balldontlie_team(raw.get("visitor_team"))
-            scheduled = _utc(str(raw.get("datetime") or raw.get("date")))
+            scheduled = _utc(scheduled_value)
             season_start = int(raw["season"])
             game_id = stable_game_id("balldontlie", event_id)
             game = Game(
@@ -77,6 +80,21 @@ def normalize_balldontlie_games(payloads: tuple[object, ...]) -> tuple[ResultGam
             normalized.append(ResultGame(game, result))
             seen.add(event_id)
     return tuple(sorted(normalized, key=lambda item: item.game.scheduled_start))
+
+
+def balldontlie_quarantines(payloads: tuple[object, ...]) -> tuple[str, ...]:
+    """Identify result records lacking the exact tip time needed for research."""
+
+    quarantined: set[str] = set()
+    for payload in payloads:
+        for raw in _items(_dictionary(payload).get("data")):
+            event_id = str(raw.get("id", ""))
+            scheduled_value = raw.get("datetime")
+            if event_id and (
+                not isinstance(scheduled_value, str) or not scheduled_value
+            ):
+                quarantined.add(f"{event_id}:missing_scheduled_datetime")
+    return tuple(sorted(quarantined))
 
 
 def match_odds_event(

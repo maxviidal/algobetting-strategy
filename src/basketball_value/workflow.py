@@ -1,5 +1,7 @@
 """Resumable NBA collection and cached-dataset loading."""
 
+import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -13,14 +15,44 @@ from basketball_value.cache import (
 from basketball_value.config import BasketballSettings
 from basketball_value.domain import Game, GameResult, MoneylineSnapshot
 from basketball_value.normalization import (
+    balldontlie_quarantines,
     normalize_balldontlie_games,
     normalize_odds_snapshot,
 )
 from basketball_value.providers import (
     BallDontLieClient,
     BasketballProviderError,
+    BasketballRateLimitError,
+    ProviderResponse,
     TheOddsApiHistoricalClient,
 )
+
+_BACKTEST_RESULTS_REQUEST_INTERVAL_SECONDS = 13.0
+_BACKTEST_RATE_LIMIT_FALLBACK_SECONDS = 60.0
+_BACKTEST_RATE_LIMIT_RETRIES = 5
+
+
+@dataclass(slots=True)
+class _RequestPacer:
+    interval_seconds: float
+    sleep: Callable[[float], None]
+    clock: Callable[[], float]
+    last_request_started_at: float | None = None
+
+    def wait(self) -> None:
+        """Wait until the backtest-only request interval has elapsed."""
+
+        now = self.clock()
+        if self.last_request_started_at is not None:
+            remaining = self.interval_seconds - (now - self.last_request_started_at)
+            if remaining > 0:
+                self.sleep(remaining)
+        self.last_request_started_at = self.clock()
+
+    def reset(self) -> None:
+        """Allow the next request immediately after an explicit retry wait."""
+
+        self.last_request_started_at = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -44,6 +76,7 @@ class BasketballDataset:
     matched_games: int
     quarantined_event_ids: tuple[str, ...]
     market_exclusions: tuple[str, ...]
+    result_quarantines: tuple[str, ...]
 
 
 def fetch_nba_history(
@@ -53,17 +86,34 @@ def fetch_nba_history(
     results_client: BallDontLieClient,
     odds_client: TheOddsApiHistoricalClient | None,
     confirmed_credits: int | None,
+    sleep: Callable[[float], None] = time.sleep,
+    monotonic: Callable[[], float] = time.monotonic,
+    results_request_interval_seconds: float = (
+        _BACKTEST_RESULTS_REQUEST_INTERVAL_SECONDS
+    ),
 ) -> QuotaManifest:
     """Cache schedules first, then fetch paid odds only after exact approval."""
 
+    if results_request_interval_seconds < 0:
+        raise ValueError("results_request_interval_seconds must not be negative")
+    pacer = _RequestPacer(
+        results_request_interval_seconds,
+        sleep,
+        monotonic,
+    )
     pages = tuple(
         payload
         for season in settings.season_start_years
         for payload in _fetch_result_pages(
-            season, cache_directory=cache_directory, client=results_client
+            season,
+            cache_directory=cache_directory,
+            client=results_client,
+            pacer=pacer,
+            sleep=sleep,
         )
     )
     result_games = normalize_balldontlie_games(pages)
+    result_quarantines = balldontlie_quarantines(pages)
     rows = _manifest_rows(
         tuple(item.game for item in result_games),
         settings=settings,
@@ -96,6 +146,7 @@ def fetch_nba_history(
         "credits_per_request": 10,
         "distinct_timestamps": len(rows),
         "expected_credits": expected_credits,
+        "result_quarantines": result_quarantines,
         "requests": rows,
     }
     write_json_atomic(manifest_path, manifest)
@@ -152,6 +203,7 @@ def load_cached_dataset(
 
     pages = _read_all_result_pages(settings, cache_directory)
     result_games = normalize_balldontlie_games(pages)
+    result_quarantines = balldontlie_quarantines(pages)
     games = tuple(item.game for item in result_games)
     results = {item.game.game_id: item.result for item in result_games}
     manifest = _read_json(cache_directory / "quota_manifest.json")
@@ -210,6 +262,7 @@ def load_cached_dataset(
         matched_games=len(matched_games),
         quarantined_event_ids=tuple(sorted(unmatched)),
         market_exclusions=tuple(sorted(exclusions)),
+        result_quarantines=result_quarantines,
     )
 
 
@@ -218,6 +271,8 @@ def _fetch_result_pages(
     *,
     cache_directory: Path,
     client: BallDontLieClient,
+    pacer: _RequestPacer,
+    sleep: Callable[[float], None],
 ) -> tuple[object, ...]:
     payloads: list[object] = []
     cursor: int | None = None
@@ -228,7 +283,13 @@ def _fetch_result_pages(
             cached = read_cached_response(path)
             payload = cached.payload
         else:
-            response = client.fetch_games_page(season, cursor=cursor)
+            response = _fetch_results_page_with_retry(
+                client,
+                season=season,
+                cursor=cursor,
+                pacer=pacer,
+                sleep=sleep,
+            )
             cached = write_cached_response(
                 path,
                 payload_bytes=response.raw_bytes,
@@ -244,6 +305,30 @@ def _fetch_result_pages(
             return tuple(payloads)
         cursor = int(next_cursor)
         page += 1
+
+
+def _fetch_results_page_with_retry(
+    client: BallDontLieClient,
+    *,
+    season: int,
+    cursor: int | None,
+    pacer: _RequestPacer,
+    sleep: Callable[[float], None],
+) -> ProviderResponse:
+    for attempt in range(_BACKTEST_RATE_LIMIT_RETRIES + 1):
+        pacer.wait()
+        try:
+            return client.fetch_games_page(season, cursor=cursor)
+        except BasketballRateLimitError as error:
+            if attempt == _BACKTEST_RATE_LIMIT_RETRIES:
+                raise
+            sleep(
+                error.retry_after_seconds
+                if error.retry_after_seconds is not None
+                else _BACKTEST_RATE_LIMIT_FALLBACK_SECONDS
+            )
+            pacer.reset()
+    raise AssertionError("rate-limit retry loop did not return")
 
 
 def _read_all_result_pages(

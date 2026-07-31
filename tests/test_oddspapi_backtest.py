@@ -1,12 +1,14 @@
 import json
 from csv import DictReader
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from pathlib import Path
 
 from tennis_value.config import AppSettings, CollectionSettings
 from tennis_value.data.odds_papi import OddsPapiResponse
 from tennis_value.oddspapi_backtest import (
     WIMBLEDON_BOOKMAKERS,
+    _latest_price,
     export_atp_wimbledon_csv,
     run_atp_wimbledon_backtest,
 )
@@ -209,6 +211,46 @@ def test_void_settlement_does_not_change_equity(tmp_path: Path) -> None:
 
     assert run.report.void_bets == 1
     assert run.report.final_equity == 10000
+
+
+def test_later_inactive_odds_record_suppresses_earlier_active_record() -> None:
+    decision = datetime(2026, 7, 1, 11, tzinfo=UTC)
+    outcome = {
+        "players": {
+            "0": [
+                {
+                    "createdAt": (decision - timedelta(minutes=10)).isoformat(),
+                    "price": "2.1",
+                    "active": True,
+                },
+                {
+                    "createdAt": (decision - timedelta(minutes=1)).isoformat(),
+                    "price": "2.0",
+                    "active": False,
+                },
+            ]
+        }
+    }
+
+    assert _latest_price(outcome, decision) is None
+
+
+def test_latest_active_odds_still_returns_price_and_timestamp() -> None:
+    decision = datetime(2026, 7, 1, 11, tzinfo=UTC)
+    observed = decision - timedelta(minutes=1)
+    outcome = {
+        "players": {
+            "0": [
+                {
+                    "createdAt": observed.isoformat(),
+                    "price": "2.25",
+                    "active": True,
+                }
+            ]
+        }
+    }
+
+    assert _latest_price(outcome, decision) == (Decimal("2.25"), observed)
 
 
 def _response(payload: object, endpoint: str) -> OddsPapiResponse:

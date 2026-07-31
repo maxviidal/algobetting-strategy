@@ -1,8 +1,8 @@
 # Algobetting Strategy
 
 Research software for identifying and backtesting potential value in
-professional sports betting markets. Tennis is the first implemented model;
-basketball will remain a separate model as it is added.
+professional sports betting markets. Tennis and basketball are separate
+applications backed by a small shared two-outcome pricing core.
 
 The project will collect point-in-time bookmaker odds, normalize the underlying
 events, remove bookmaker margins, construct a robust market consensus, and flag
@@ -17,12 +17,73 @@ built. It does not place bets and does not claim guaranteed profitability. See
 ```text
 configs/       Research settings
 src/
+  betting_core/ Sport-neutral two-outcome pricing and point-in-time selection
+  basketball_value/ NBA data, strategy, backtest, and reporting
   tennis_value/ Tennis-specific application code
     data/       Ingestion, normalization, domain records, and persistence
 tests/         Automated tests
 ```
 
 New modules and directories should be added only when working code needs them.
+
+## NBA moneyline consensus pilot
+
+`basketball_value` implements a research-only NBA regular-season moneyline
+backtest for 2021–22 through 2025–26. It does not predict games from team
+statistics and does not place bets. The locked model uses EU decimal `h2h`
+prices, proportional de-vigging, a leave-one-bookmaker-out median consensus,
+and a 5% expected-value threshold. Entry is measured 60 minutes before
+scheduled tip and closing value five minutes before tip. At least five
+complete fixed-odds bookmakers are required, and quotes older than 30 minutes
+are excluded.
+
+Copy `.env.example` to the ignored `.env` file and supply:
+
+```text
+BALLDONTLIE_API_KEY=your-key
+ODDS_API_KEY=your-key
+```
+
+The first collection pass retrieves the free BALLDONTLIE schedules/results,
+deduplicates all 60-minute and five-minute timestamps, and writes an exact
+quota manifest. It makes no paid historical-odds requests:
+
+```bash
+basketball-value fetch-nba-history
+```
+
+Review `data/nba_moneyline/quota_manifest.json`. To authorize the historical
+requests, rerun with the exact `expected_credits` value printed by the first
+pass:
+
+```bash
+basketball-value fetch-nba-history --confirm-quota-cost EXPECTED_CREDITS
+```
+
+The value must match exactly or the command stops. Exact provider responses
+are written atomically with query time, provider snapshot time, and checksum.
+Successful and explicit no-data requests are reused; a recorded failure is
+left observable and is not silently retried.
+
+Once the cache is complete, both remaining commands are offline:
+
+```bash
+basketball-value backtest-nba-moneyline
+basketball-value export-nba-report
+```
+
+The export creates game-level and offer-level CSV files plus a JSON summary
+containing coverage, calibration, Brier score, log loss, closing value,
+flat-stake ROI, turnover, hit rate, drawdown, 95% confidence intervals,
+fractional-Kelly sensitivity, and the configured breakdowns. Development-only
+threshold tables are reported separately. The validation and 2025–26 holdout
+threshold remain fixed at 5%.
+
+The final conclusion is `supported` only when the cache and matching acceptance
+checks pass and the untouched 2025–26 holdout contains at least 300 candidates,
+positive mean closing value, positive flat-stake ROI, and a positive lower 95%
+confidence bound. Otherwise it is reported as `negative` or `inconclusive`;
+the command never lowers the threshold after observing results.
 
 ## Normalization
 
