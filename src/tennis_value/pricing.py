@@ -4,6 +4,15 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
 
+from betting_core import (
+    expected_value as core_expected_value,
+)
+from betting_core import (
+    fair_odds as core_fair_odds,
+)
+from betting_core import (
+    proportional_probabilities,
+)
 from tennis_value.data.domain import OddsSnapshot, PlayerId
 
 PROPORTIONAL_MARGIN_METHOD = "proportional"
@@ -55,12 +64,20 @@ def proportional_devig(
     if not overround.is_finite() or overround <= 0:
         raise ValueError("snapshot overround must be finite and greater than zero")
 
+    fair = dict(
+        proportional_probabilities(
+            (
+                (str(ordered_prices[0].player_id), ordered_prices[0].decimal_odds),
+                (str(ordered_prices[1].player_id), ordered_prices[1].decimal_odds),
+            )
+        )
+    )
     devigged = tuple(
         DeViggedPrice(
             player_id=price.player_id,
             decimal_odds=price.decimal_odds,
             implied_probability=implied_probability,
-            fair_probability=implied_probability / overround,
+            fair_probability=fair[str(price.player_id)],
         )
         for price, implied_probability in zip(ordered_prices, implied, strict=True)
     )
@@ -79,10 +96,9 @@ def proportional_devig(
 def fair_odds(probability: Decimal) -> Decimal:
     """Convert a strictly positive probability to decimal fair odds."""
 
-    _require_probability(probability)
     if probability == 0:
         raise ValueError("probability must be greater than zero for fair odds")
-    return Decimal(1) / probability
+    return core_fair_odds(probability)
 
 
 def expected_value(
@@ -91,15 +107,7 @@ def expected_value(
 ) -> Decimal:
     """Return expected profit per unit staked."""
 
-    if not offered_odds.is_finite() or offered_odds <= 1:
-        raise ValueError("offered_odds must be finite and greater than 1.0")
-    _require_probability(probability)
-    return offered_odds * probability - Decimal(1)
-
-
-def _require_probability(probability: Decimal) -> None:
-    if not probability.is_finite() or probability < 0 or probability > 1:
-        raise ValueError("probability must be finite and between 0 and 1")
+    return core_expected_value(offered_odds, probability)
 
 
 def _require_utc(value: datetime, field_name: str) -> None:

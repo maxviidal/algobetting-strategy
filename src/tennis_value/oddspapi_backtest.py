@@ -11,6 +11,7 @@ from hashlib import sha256
 from pathlib import Path
 from typing import Any
 
+from betting_core import QuoteRecord, select_latest_record
 from tennis_value.backtesting import (
     KellyBacktestReport,
     KellySettings,
@@ -489,7 +490,7 @@ def snapshots_at_sixty_minutes(
                 continue
             odds_one, observed_one = first
             odds_two, observed_two = second
-            observed_at = min(observed_one, observed_two)
+            observed_at = max(observed_one, observed_two)
             snapshots.append(
                 OddsSnapshot(
                     snapshot_id=_snapshot_id(
@@ -529,18 +530,40 @@ def _latest_price(
     records = _as_dict(_as_dict(outcome).get("players")).get("0")
     if not isinstance(records, list):
         return None
-    eligible: list[tuple[Decimal, datetime]] = []
+    history: list[QuoteRecord] = []
     for record in records:
-        if not isinstance(record, dict) or record.get("active") is not True:
+        if not isinstance(record, dict):
             continue
         try:
             observed = _utc(str(record["createdAt"]))
-            odds = Decimal(str(record["price"]))
         except (KeyError, ValueError):
             continue
-        if observed <= decision_at and odds.is_finite() and odds > 1:
-            eligible.append((odds, observed))
-    return max(eligible, key=lambda item: item[1]) if eligible else None
+        price_value = record.get("price")
+        try:
+            odds = Decimal(str(price_value)) if price_value is not None else None
+        except ValueError:
+            odds = None
+        history.append(
+            QuoteRecord(
+                outcome_id="outcome",
+                decimal_odds=odds,
+                observed_at=observed,
+                active=record.get("active") is True,
+            )
+        )
+    selected = select_latest_record(
+        tuple(history),
+        decision_at=decision_at,
+    )
+    if (
+        selected is None
+        or not selected.active
+        or selected.decimal_odds is None
+        or not selected.decimal_odds.is_finite()
+        or selected.decimal_odds <= 1
+    ):
+        return None
+    return selected.decimal_odds, selected.observed_at
 
 
 def _fixture(value: dict[str, Any]) -> WimbledonFixture:
