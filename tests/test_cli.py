@@ -112,7 +112,7 @@ def test_local_commands_approve_normalize_and_evaluate_without_api_call(
 ) -> None:
     database_path = tmp_path / "odds.sqlite3"
     bookmakers = []
-    for bookmaker in ("a", "b", "c", "d", "e"):
+    for bookmaker in ("a", "b", "c", "d", "pinnacle"):
         first_odds, second_odds = (3.0, 1.5) if bookmaker == "a" else (2.0, 2.0)
         bookmakers.append(
             {
@@ -193,7 +193,7 @@ def test_local_commands_approve_normalize_and_evaluate_without_api_call(
     )
     evaluation_output = capsys.readouterr()
     assert "Matches evaluated: 1" in evaluation_output.out
-    assert "Offers evaluated: 10" in evaluation_output.out
+    assert "Offers evaluated: 8" in evaluation_output.out
     assert "Candidates: 1" in evaluation_output.out
     assert "Player One vs Player Two" in evaluation_output.out
     assert "odds=3.0" in evaluation_output.out

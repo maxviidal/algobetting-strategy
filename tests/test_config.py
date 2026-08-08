@@ -84,7 +84,7 @@ def test_project_configuration_loads_with_typed_values(
     assert settings.collection.minimum_bookmakers == 5
     assert settings.collection.maximum_quote_age_seconds == maximum_age
     assert settings.pricing.margin_method == "power"
-    assert settings.pricing.consensus_method == "median"
+    assert settings.pricing.consensus_method == "pinnacle"
     assert settings.pricing.leave_one_bookmaker_out
     assert settings.signals.minimum_expected_value == Decimal(minimum_ev)
     assert settings.quality.review_expected_value == Decimal("0.20")

@@ -187,7 +187,7 @@ source code or a committed configuration file.
 
 ## Market pricing and value signals
 
-The first pricing model is an explainable market-consensus baseline. For a
+The pricing model retains an explainable market-consensus baseline. For a
 specified UTC decision time, `tennis_value.signals.evaluate_market` selects the
 latest non-stale snapshot from every bookmaker and requires at least five
 eligible bookmakers in total. A quote observed after the decision time is never
@@ -195,7 +195,7 @@ used.
 
 Each complete two-player market is converted from decimal odds to implied
 probabilities. The power method finds a common exponent `k` such that the
-powered implied probabilities sum to one. Every offered outcome is then compared with the median fair probability
+powered implied probabilities sum to one. In median mode, every offered outcome is then compared with the median fair probability
 from all other eligible bookmakers. The evaluated bookmaker is excluded from
 its own benchmark.
 
@@ -205,6 +205,16 @@ Expected value is reported per unit staked:
 expected_value = offered_odds * consensus_probability - 1
 ```
 
+The active tennis research configuration uses The Odds API bookmaker key
+`pinnacle` as the sharp reference. Pinnacle's two match-winner prices are
+power-de-vigged into probabilities, and offers at every other eligible
+bookmaker are evaluated against those probabilities. Pinnacle is never
+evaluated against itself. If its quote is missing, stale, after the decision
+time, incomplete, or otherwise invalid, the match fails closed instead of
+falling back to the median. This is a sharp-market proxy, not ground truth or a
+calibrated lower confidence bound; the provider notes that its public Pinnacle
+feed may be delayed.
+
 All eligible offers are returned for research, including those below the signal
 threshold. Quality flags identify unusually large edges, suspicious market
 overround, and wide peer disagreement without deleting the observation. These
@@ -212,8 +222,8 @@ are research signals, not guarantees or instructions to place a bet.
 
 The settings in `configs/development.toml` and `configs/research.toml` control
 quote age, minimum bookmaker coverage, the candidate threshold, and diagnostic
-boundaries. Pricing supports power margin removal, median consensus,
-and leave-one-bookmaker-out evaluation only.
+boundaries. Pricing supports power margin removal and either median
+leave-one-bookmaker-out consensus or a single Pinnacle sharp reference.
 
 ## Odds history
 

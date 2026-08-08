@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Literal, cast
 
 type MarginMethod = Literal["power"]
-type ConsensusMethod = Literal["median"]
+type ConsensusMethod = Literal["median", "pinnacle"]
 
 _ENVIRONMENT_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
@@ -48,9 +48,9 @@ class PricingSettings:
     def __post_init__(self) -> None:
         if self.margin_method != "power":
             raise ConfigurationError("margin_method must be 'power'")
-        if self.consensus_method != "median":
+        if self.consensus_method not in ("median", "pinnacle"):
             raise ConfigurationError(
-                "consensus_method must be 'median' in pricing model v1"
+                "consensus_method must be 'median' or 'pinnacle'"
             )
         if self.leave_one_bookmaker_out is not True:
             raise ConfigurationError(

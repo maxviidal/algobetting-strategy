@@ -7,7 +7,11 @@ from decimal import Decimal
 from enum import StrEnum
 
 from tennis_value.config import AppSettings
-from tennis_value.consensus import ConsensusEstimate, leave_one_out_median_consensus
+from tennis_value.consensus import (
+    ConsensusEstimate,
+    leave_one_out_median_consensus,
+    sharp_bookmaker_consensus,
+)
 from tennis_value.data.domain import Match, OddsSnapshot, PlayerId
 from tennis_value.pricing import (
     DeViggedMarket,
@@ -111,6 +115,10 @@ class InsufficientBookmakersError(MarketEvaluationError):
         )
 
 
+class MissingSharpBookmakerError(MarketEvaluationError):
+    """Raised when the configured sharp reference has no eligible quote."""
+
+
 def evaluate_market(
     match: Match,
     snapshots: tuple[OddsSnapshot, ...],
@@ -154,6 +162,13 @@ def evaluate_market(
     markets = tuple(
         power_devig(snapshot, calculated_at=calculation_time) for snapshot in selected
     )
+    if (
+        settings.pricing.consensus_method == "pinnacle"
+        and not any(market.bookmaker_id == "pinnacle" for market in markets)
+    ):
+        raise MissingSharpBookmakerError(
+            "Pinnacle has no eligible point-in-time h2h quote for this market"
+        )
     evaluations = tuple(
         _evaluate_offer(
             market,
@@ -165,6 +180,10 @@ def evaluate_market(
             settings=settings,
         )
         for market in markets
+        if not (
+            settings.pricing.consensus_method == "pinnacle"
+            and market.bookmaker_id == "pinnacle"
+        )
         for price in market.prices
     )
     return MarketEvaluationResult(
@@ -307,12 +326,21 @@ def _evaluate_offer(
     calculated_at: datetime,
     settings: AppSettings,
 ) -> OfferEvaluation:
-    consensus = leave_one_out_median_consensus(
-        markets,
-        target_bookmaker_id=market.bookmaker_id,
-        player_id=player_id,
-        calculated_at=calculated_at,
-    )
+    if settings.pricing.consensus_method == "pinnacle":
+        consensus = sharp_bookmaker_consensus(
+            markets,
+            target_bookmaker_id=market.bookmaker_id,
+            player_id=player_id,
+            sharp_bookmaker_id="pinnacle",
+            calculated_at=calculated_at,
+        )
+    else:
+        consensus = leave_one_out_median_consensus(
+            markets,
+            target_bookmaker_id=market.bookmaker_id,
+            player_id=player_id,
+            calculated_at=calculated_at,
+        )
     edge = expected_value(offered_odds, consensus.probability)
     suspicious_ids = _suspicious_overround_snapshot_ids(markets, settings)
     flags = _quality_flags(

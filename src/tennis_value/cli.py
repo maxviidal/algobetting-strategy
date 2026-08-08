@@ -148,8 +148,8 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     collect.add_argument(
         "--regions",
-        default="uk",
-        help="comma-separated bookmaker regions (default: uk)",
+        default="uk,eu",
+        help="comma-separated bookmaker regions (default: uk,eu; EU includes Pinnacle)",
     )
     _add_database_argument(collect)
 

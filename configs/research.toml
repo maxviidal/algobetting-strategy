@@ -4,7 +4,7 @@ maximum_quote_age_seconds = 180
 
 [pricing]
 margin_method = "power"
-consensus_method = "median"
+consensus_method = "pinnacle"
 leave_one_bookmaker_out = true
 
 [signals]

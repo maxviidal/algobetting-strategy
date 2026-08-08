@@ -6,6 +6,7 @@ import pytest
 
 from tennis_value.config import (
     AppSettings,
+    PricingSettings,
     QualitySettings,
     SignalSettings,
 )
@@ -15,6 +16,7 @@ from tennis_value.signals import (
     ExclusionReason,
     InsufficientBookmakersError,
     MarketEvaluationError,
+    MissingSharpBookmakerError,
     QualityFlag,
     evaluate_market,
 )
@@ -236,6 +238,56 @@ def test_candidate_threshold_is_inclusive_and_non_candidates_are_retained() -> N
     assert target.expected_value == Decimal("0.050")
     assert target.is_candidate
     assert any(not evaluation.is_candidate for evaluation in result.evaluations)
+
+
+def test_pinnacle_consensus_devigs_sharp_quote_and_evaluates_other_books() -> None:
+    settings = replace(
+        AppSettings(),
+        pricing=PricingSettings(consensus_method="pinnacle"),
+    )
+    snapshots = (
+        make_snapshot("pinnacle", first_odds="1.80", second_odds="2.20"),
+        make_snapshot("a", first_odds="2.10", second_odds="1.80"),
+        make_snapshot("b"),
+        make_snapshot("c"),
+        make_snapshot("d"),
+    )
+
+    result = evaluate_market(
+        MATCH,
+        snapshots,
+        decision_at=DECISION_AT,
+        calculated_at=CALCULATED_AT,
+        settings=settings,
+    )
+    target = next(
+        evaluation
+        for evaluation in result.evaluations
+        if evaluation.bookmaker_id == "a" and evaluation.player_id == 1
+    )
+
+    assert len(result.evaluations) == 8
+    assert all(item.bookmaker_id != "pinnacle" for item in result.evaluations)
+    assert target.consensus_method == "pinnacle"
+    assert target.peer_snapshot_ids == ("snapshot-pinnacle",)
+    assert target.peer_count == 1
+    assert target.expected_value > 0
+
+
+def test_pinnacle_consensus_fails_closed_when_sharp_quote_is_missing() -> None:
+    settings = replace(
+        AppSettings(),
+        pricing=PricingSettings(consensus_method="pinnacle"),
+    )
+
+    with pytest.raises(MissingSharpBookmakerError, match="Pinnacle"):
+        evaluate_market(
+            MATCH,
+            five_snapshots(),
+            decision_at=DECISION_AT,
+            calculated_at=CALCULATED_AT,
+            settings=settings,
+        )
 
 
 def test_quality_flags_do_not_suppress_candidates_or_coverage() -> None:

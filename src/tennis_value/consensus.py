@@ -8,6 +8,7 @@ from tennis_value.data.domain import PlayerId
 from tennis_value.pricing import DeViggedMarket, fair_odds
 
 MEDIAN_CONSENSUS_METHOD = "median"
+PINNACLE_CONSENSUS_METHOD = "pinnacle"
 
 
 @dataclass(frozen=True, slots=True)
@@ -78,5 +79,42 @@ def leave_one_out_median_consensus(
         maximum_peer_probability=maximum,
         peer_probability_range=maximum - minimum,
         method=MEDIAN_CONSENSUS_METHOD,
+        calculated_at=calculated_at,
+    )
+
+
+def sharp_bookmaker_consensus(
+    markets: tuple[DeViggedMarket, ...],
+    *,
+    target_bookmaker_id: str,
+    player_id: PlayerId,
+    sharp_bookmaker_id: str,
+    calculated_at: datetime,
+) -> ConsensusEstimate:
+    """Use one explicitly designated, de-vigged sharp market as the estimate."""
+
+    if target_bookmaker_id == sharp_bookmaker_id:
+        raise ValueError("the sharp bookmaker cannot be evaluated against itself")
+    sharp_markets = tuple(
+        market for market in markets if market.bookmaker_id == sharp_bookmaker_id
+    )
+    if len(sharp_markets) != 1:
+        raise ValueError(
+            f"expected exactly one {sharp_bookmaker_id!r} market; "
+            f"found {len(sharp_markets)}"
+        )
+    sharp = sharp_markets[0]
+    probability = sharp.probability_for(player_id)
+    return ConsensusEstimate(
+        target_bookmaker_id=target_bookmaker_id,
+        player_id=player_id,
+        probability=probability,
+        fair_odds=fair_odds(probability),
+        peer_count=1,
+        peer_snapshot_ids=(sharp.snapshot_id,),
+        minimum_peer_probability=probability,
+        maximum_peer_probability=probability,
+        peer_probability_range=Decimal(0),
+        method=PINNACLE_CONSENSUS_METHOD,
         calculated_at=calculated_at,
     )
