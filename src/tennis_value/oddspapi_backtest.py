@@ -299,12 +299,30 @@ def _write_matches_csv(
     bet_by_match: dict[str, KellySettledBet],
 ) -> None:
     fields = (
-        "fixture_id", "scheduled_start", "decision_at", "player_one_id",
-        "player_one_name", "player_two_id", "player_two_name", "result_status",
-        "winner_player_id", "winner_name", "eligible_bookmakers", "bookmakers",
-        "offers_evaluated", "candidate_offers", "selected_player_id",
-        "selected_player_name", "selected_bookmaker", "selected_odds", "selected_ev",
-        "kelly_stake", "settlement", "profit", "equity_after", "drawdown",
+        "fixture_id",
+        "scheduled_start",
+        "decision_at",
+        "player_one_id",
+        "player_one_name",
+        "player_two_id",
+        "player_two_name",
+        "result_status",
+        "winner_player_id",
+        "winner_name",
+        "eligible_bookmakers",
+        "bookmakers",
+        "offers_evaluated",
+        "candidate_offers",
+        "selected_player_id",
+        "selected_player_name",
+        "selected_bookmaker",
+        "selected_odds",
+        "selected_ev",
+        "kelly_stake",
+        "settlement",
+        "profit",
+        "equity_after",
+        "drawdown",
     )
     with path.open("w", newline="", encoding="utf-8") as file:
         writer = csv.DictWriter(file, fieldnames=fields)
@@ -316,40 +334,44 @@ def _write_matches_csv(
             }
             bet = bet_by_match.get(fixture.fixture_id)
             candidate = bet.candidate if bet is not None else None
-            writer.writerow({
-                "fixture_id": fixture.fixture_id,
-                "scheduled_start": fixture.scheduled_start.isoformat(),
-                "decision_at": (
-                    fixture.scheduled_start - timedelta(minutes=60)
-                ).isoformat(),
-                "player_one_id": fixture.player_one_id,
-                "player_one_name": fixture.player_one_name,
-                "player_two_id": fixture.player_two_id,
-                "player_two_name": fixture.player_two_name,
-                "result_status": result.status.value,
-                "winner_player_id": result.winner_player_id or "",
-                "winner_name": (
-                    player_names[result.winner_player_id]
-                    if result.winner_player_id is not None
-                    else ""
-                ),
-                "eligible_bookmakers": len(snapshots),
-                "bookmakers": ",".join(snapshot.bookmaker_id for snapshot in snapshots),
-                "offers_evaluated": len(offers),
-                "candidate_offers": sum(offer.is_candidate for offer in offers),
-                "selected_player_id": candidate.player_id if candidate else "",
-                "selected_player_name": (
-                    player_names[candidate.player_id] if candidate else ""
-                ),
-                "selected_bookmaker": candidate.bookmaker_id if candidate else "",
-                "selected_odds": candidate.offered_odds if candidate else "",
-                "selected_ev": candidate.expected_value if candidate else "",
-                "kelly_stake": bet.stake if bet else "",
-                "settlement": bet.status.value if bet else "",
-                "profit": bet.profit if bet else "",
-                "equity_after": bet.available_equity_after if bet else "",
-                "drawdown": bet.drawdown if bet else "",
-            })
+            writer.writerow(
+                {
+                    "fixture_id": fixture.fixture_id,
+                    "scheduled_start": fixture.scheduled_start.isoformat(),
+                    "decision_at": (
+                        fixture.scheduled_start - timedelta(minutes=60)
+                    ).isoformat(),
+                    "player_one_id": fixture.player_one_id,
+                    "player_one_name": fixture.player_one_name,
+                    "player_two_id": fixture.player_two_id,
+                    "player_two_name": fixture.player_two_name,
+                    "result_status": result.status.value,
+                    "winner_player_id": result.winner_player_id or "",
+                    "winner_name": (
+                        player_names[result.winner_player_id]
+                        if result.winner_player_id is not None
+                        else ""
+                    ),
+                    "eligible_bookmakers": len(snapshots),
+                    "bookmakers": ",".join(
+                        snapshot.bookmaker_id for snapshot in snapshots
+                    ),
+                    "offers_evaluated": len(offers),
+                    "candidate_offers": sum(offer.is_candidate for offer in offers),
+                    "selected_player_id": candidate.player_id if candidate else "",
+                    "selected_player_name": (
+                        player_names[candidate.player_id] if candidate else ""
+                    ),
+                    "selected_bookmaker": candidate.bookmaker_id if candidate else "",
+                    "selected_odds": candidate.offered_odds if candidate else "",
+                    "selected_ev": candidate.expected_value if candidate else "",
+                    "kelly_stake": bet.stake if bet else "",
+                    "settlement": bet.status.value if bet else "",
+                    "profit": bet.profit if bet else "",
+                    "equity_after": bet.available_equity_after if bet else "",
+                    "drawdown": bet.drawdown if bet else "",
+                }
+            )
 
 
 def _write_offers_csv(
@@ -358,13 +380,31 @@ def _write_offers_csv(
     bet_by_match: dict[str, KellySettledBet],
 ) -> None:
     fields = (
-        "fixture_id", "scheduled_start", "decision_at", "bookmaker", "snapshot_id",
-        "quote_observed_at", "player_id", "player_name", "opponent_name",
+        "fixture_id",
+        "scheduled_start",
+        "decision_at",
+        "bookmaker",
+        "snapshot_id",
+        "quote_observed_at",
+        "player_id",
+        "player_name",
+        "opponent_name",
         "offered_odds",
-        "bookmaker_overround", "consensus_probability", "consensus_fair_odds",
-        "expected_value", "is_candidate", "peer_count", "peer_bookmaker_snapshots",
-        "peer_min_probability", "peer_max_probability", "peer_probability_range",
-        "quality_flags", "selected_for_kelly", "kelly_stake", "settlement", "profit",
+        "bookmaker_overround",
+        "consensus_probability",
+        "consensus_fair_odds",
+        "expected_value",
+        "is_candidate",
+        "peer_count",
+        "peer_bookmaker_snapshots",
+        "peer_min_probability",
+        "peer_max_probability",
+        "peer_probability_range",
+        "quality_flags",
+        "selected_for_kelly",
+        "kelly_stake",
+        "settlement",
+        "profit",
     )
     with path.open("w", newline="", encoding="utf-8") as file:
         writer = csv.DictWriter(file, fieldnames=fields)
@@ -375,8 +415,7 @@ def _write_offers_csv(
                 fixture.player_two_id: fixture.player_two_name,
             }
             observed_at = {
-                snapshot.snapshot_id: snapshot.observed_at
-                for snapshot in snapshots
+                snapshot.snapshot_id: snapshot.observed_at for snapshot in snapshots
             }
             bet = bet_by_match.get(fixture.fixture_id)
             selected = bet.candidate if bet is not None else None
@@ -386,43 +425,45 @@ def _write_offers_csv(
                     and offer.snapshot_id == selected.snapshot_id
                     and offer.player_id == selected.player_id
                 )
-                writer.writerow({
-                    "fixture_id": fixture.fixture_id,
-                    "scheduled_start": fixture.scheduled_start.isoformat(),
-                    "decision_at": (
-                        fixture.scheduled_start - timedelta(minutes=60)
-                    ).isoformat(),
-                    "bookmaker": offer.bookmaker_id,
-                    "snapshot_id": offer.snapshot_id,
-                    "quote_observed_at": observed_at[offer.snapshot_id].isoformat(),
-                    "player_id": offer.player_id,
-                    "player_name": player_names[offer.player_id],
-                    "opponent_name": player_names[
-                        next(
-                            player_id
-                            for player_id in player_names
-                            if player_id != offer.player_id
-                        )
-                    ],
-                    "offered_odds": offer.offered_odds,
-                    "bookmaker_overround": offer.target_overround,
-                    "consensus_probability": offer.consensus_probability,
-                    "consensus_fair_odds": offer.consensus_fair_odds,
-                    "expected_value": offer.expected_value,
-                    "is_candidate": offer.is_candidate,
-                    "peer_count": offer.peer_count,
-                    "peer_bookmaker_snapshots": ",".join(offer.peer_snapshot_ids),
-                    "peer_min_probability": offer.minimum_peer_probability,
-                    "peer_max_probability": offer.maximum_peer_probability,
-                    "peer_probability_range": offer.peer_probability_range,
-                    "quality_flags": ",".join(
-                        flag.value for flag in offer.quality_flags
-                    ),
-                    "selected_for_kelly": is_selected,
-                    "kelly_stake": bet.stake if is_selected and bet else "",
-                    "settlement": bet.status.value if is_selected and bet else "",
-                    "profit": bet.profit if is_selected and bet else "",
-                })
+                writer.writerow(
+                    {
+                        "fixture_id": fixture.fixture_id,
+                        "scheduled_start": fixture.scheduled_start.isoformat(),
+                        "decision_at": (
+                            fixture.scheduled_start - timedelta(minutes=60)
+                        ).isoformat(),
+                        "bookmaker": offer.bookmaker_id,
+                        "snapshot_id": offer.snapshot_id,
+                        "quote_observed_at": observed_at[offer.snapshot_id].isoformat(),
+                        "player_id": offer.player_id,
+                        "player_name": player_names[offer.player_id],
+                        "opponent_name": player_names[
+                            next(
+                                player_id
+                                for player_id in player_names
+                                if player_id != offer.player_id
+                            )
+                        ],
+                        "offered_odds": offer.offered_odds,
+                        "bookmaker_overround": offer.target_overround,
+                        "consensus_probability": offer.consensus_probability,
+                        "consensus_fair_odds": offer.consensus_fair_odds,
+                        "expected_value": offer.expected_value,
+                        "is_candidate": offer.is_candidate,
+                        "peer_count": offer.peer_count,
+                        "peer_bookmaker_snapshots": ",".join(offer.peer_snapshot_ids),
+                        "peer_min_probability": offer.minimum_peer_probability,
+                        "peer_max_probability": offer.maximum_peer_probability,
+                        "peer_probability_range": offer.peer_probability_range,
+                        "quality_flags": ",".join(
+                            flag.value for flag in offer.quality_flags
+                        ),
+                        "selected_for_kelly": is_selected,
+                        "kelly_stake": bet.stake if is_selected and bet else "",
+                        "settlement": bet.status.value if is_selected and bet else "",
+                        "profit": bet.profit if is_selected and bet else "",
+                    }
+                )
 
 
 def parse_fixtures(raw_bytes: bytes) -> tuple[WimbledonFixture, ...]:

@@ -83,7 +83,7 @@ def test_project_configuration_loads_with_typed_values(
 
     assert settings.collection.minimum_bookmakers == 5
     assert settings.collection.maximum_quote_age_seconds == maximum_age
-    assert settings.pricing.margin_method == "proportional"
+    assert settings.pricing.margin_method == "power"
     assert settings.pricing.consensus_method == "median"
     assert settings.pricing.leave_one_bookmaker_out
     assert settings.signals.minimum_expected_value == Decimal(minimum_ev)
@@ -103,7 +103,7 @@ maximum_quote_age_seconds = 300
 unknown = true
 
 [pricing]
-margin_method = "proportional"
+margin_method = "power"
 consensus_method = "median"
 leave_one_bookmaker_out = true
 
@@ -119,7 +119,7 @@ minimum_expected_value = 0.05
 @pytest.mark.parametrize(
     ("field", "replacement", "message"),
     [
-        ("margin_method", '"power"', "margin_method"),
+        ("margin_method", '"proportional"', "margin_method"),
         ("consensus_method", '"mean"', "consensus_method"),
         ("leave_one_bookmaker_out", "false", "leave_one_bookmaker_out"),
     ],
@@ -130,7 +130,7 @@ def test_configuration_rejects_unsupported_v1_pricing_options(
     replacement: str,
     message: str,
 ) -> None:
-    margin_method = '"proportional"'
+    margin_method = '"power"'
     consensus_method = '"median"'
     leave_one_out = "true"
     if field == "margin_method":

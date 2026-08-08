@@ -4,8 +4,12 @@ from pathlib import Path
 import pytest
 
 from basketball_value.config import load_basketball_settings
-from basketball_value.providers import BasketballRateLimitError, ProviderResponse
-from basketball_value.workflow import fetch_nba_history
+from basketball_value.providers import (
+    BasketballNetworkError,
+    BasketballRateLimitError,
+    ProviderResponse,
+)
+from basketball_value.workflow import fetch_nba_history, preflight_nba_history
 
 
 class FakeResultsClient:
@@ -38,14 +42,34 @@ class FakeResultsClient:
 
 
 class FakeOddsClient:
-    def __init__(self) -> None:
+    def __init__(self, remaining: int = 1000) -> None:
         self.calls = 0
+        self.remaining = remaining
 
     def fetch_snapshot(self, **_: object) -> ProviderResponse:
         self.calls += 1
         payload = {"timestamp": "2026-01-02T02:00:00Z", "data": []}
         raw = json.dumps(payload).encode()
-        return ProviderResponse(raw, payload)
+        return ProviderResponse(
+            raw,
+            payload,
+            {
+                "x-requests-last": "10",
+                "x-requests-remaining": str(self.remaining - 10),
+                "x-requests-used": "10",
+            },
+        )
+
+    def fetch_account_status(self) -> ProviderResponse:
+        payload: list[object] = []
+        return ProviderResponse(
+            b"[]",
+            payload,
+            {
+                "x-requests-remaining": str(self.remaining),
+                "x-requests-used": "0",
+            },
+        )
 
 
 class RateLimitedResultsClient(FakeResultsClient):
@@ -62,12 +86,22 @@ class RateLimitedResultsClient(FakeResultsClient):
         return super().fetch_games_page(season_start_year, cursor=cursor)
 
 
+class NetworkThenOddsClient(FakeOddsClient):
+    def __init__(self) -> None:
+        super().__init__(100)
+        self.failed_once = False
+
+    def fetch_snapshot(self, **values: object) -> ProviderResponse:
+        if not self.failed_once:
+            self.failed_once = True
+            raise BasketballNetworkError("temporary test failure")
+        return super().fetch_snapshot(**values)
+
+
 def test_manifest_requires_exact_approval_and_cached_rerun_spends_nothing(
     tmp_path: Path,
 ) -> None:
-    settings = load_basketball_settings(
-        Path("configs/basketball_research.toml")
-    )
+    settings = load_basketball_settings(Path("configs/basketball_research.toml"))
     results = FakeResultsClient()
 
     manifest = fetch_nba_history(
@@ -117,7 +151,7 @@ def test_manifest_requires_exact_approval_and_cached_rerun_spends_nothing(
         cache_directory=tmp_path,
         results_client=results,  # type: ignore[arg-type]
         odds_client=resumed_odds,  # type: ignore[arg-type]
-        confirmed_credits=100,
+        confirmed_credits=0,
         sleep=lambda _: None,
         results_request_interval_seconds=0,
     )
@@ -129,9 +163,7 @@ def test_manifest_requires_exact_approval_and_cached_rerun_spends_nothing(
 def test_backtest_schedule_collection_waits_and_retries_rate_limit(
     tmp_path: Path,
 ) -> None:
-    settings = load_basketball_settings(
-        Path("configs/basketball_research.toml")
-    )
+    settings = load_basketball_settings(Path("configs/basketball_research.toml"))
     results = RateLimitedResultsClient()
     waits: list[float] = []
 
@@ -148,3 +180,71 @@ def test_backtest_schedule_collection_waits_and_retries_rate_limit(
     assert manifest.distinct_timestamps == 10
     assert waits == [7]
     assert results.calls == 5
+
+
+def test_preflight_reports_purchase_then_download_readiness(
+    tmp_path: Path,
+) -> None:
+    settings = load_basketball_settings(Path("configs/basketball_research.toml"))
+    fetch_nba_history(
+        settings=settings,
+        cache_directory=tmp_path,
+        results_client=FakeResultsClient(),  # type: ignore[arg-type]
+        odds_client=None,
+        confirmed_credits=None,
+        sleep=lambda _: None,
+        results_request_interval_seconds=0,
+    )
+
+    before_purchase = preflight_nba_history(
+        settings=settings,
+        cache_directory=tmp_path,
+        reports_directory=tmp_path / "reports",
+        results_key_present=True,
+        odds_client=FakeOddsClient(50),  # type: ignore[arg-type]
+    )
+    after_purchase = preflight_nba_history(
+        settings=settings,
+        cache_directory=tmp_path,
+        reports_directory=tmp_path / "reports",
+        results_key_present=True,
+        odds_client=FakeOddsClient(100),  # type: ignore[arg-type]
+    )
+
+    assert before_purchase.status == "READY_TO_PURCHASE"
+    assert before_purchase.credit_headroom == -50
+    assert after_purchase.status == "READY_TO_DOWNLOAD"
+    assert after_purchase.credit_headroom == 0
+
+
+def test_paid_history_retries_temporary_network_failure(
+    tmp_path: Path,
+) -> None:
+    settings = load_basketball_settings(Path("configs/basketball_research.toml"))
+    results = FakeResultsClient()
+    fetch_nba_history(
+        settings=settings,
+        cache_directory=tmp_path,
+        results_client=results,  # type: ignore[arg-type]
+        odds_client=None,
+        confirmed_credits=None,
+        sleep=lambda _: None,
+        results_request_interval_seconds=0,
+    )
+    waits: list[float] = []
+    odds = NetworkThenOddsClient()
+
+    completed = fetch_nba_history(
+        settings=settings,
+        cache_directory=tmp_path,
+        results_client=results,  # type: ignore[arg-type]
+        odds_client=odds,  # type: ignore[arg-type]
+        confirmed_credits=100,
+        sleep=waits.append,
+        results_request_interval_seconds=0,
+        odds_request_interval_seconds=0,
+    )
+
+    assert completed.missing_requests == 0
+    assert odds.calls == 10
+    assert waits == [2]

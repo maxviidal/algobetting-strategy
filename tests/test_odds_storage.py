@@ -76,9 +76,7 @@ def test_raw_response_is_preserved_exactly_and_insert_is_idempotent(
     assert stored.collected_at == CALCULATED_AT
     assert stored.source == "historical-api"
     assert stored.provider_snapshot_at == "2026-07-30T12:00:00Z"
-    count = connection.execute(
-        "SELECT COUNT(*) FROM raw_odds_responses"
-    ).fetchone()
+    count = connection.execute("SELECT COUNT(*) FROM raw_odds_responses").fetchone()
     assert count == (1,)
 
 

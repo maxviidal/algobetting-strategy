@@ -4,12 +4,13 @@ from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
 
+from basketball_value.calibration import BootstrapCalibration
 from basketball_value.domain import (
     Game,
     GameResult,
     MoneylineSnapshot,
 )
-from betting_core import expected_value, median_decimal, proportional_probabilities
+from betting_core import expected_value, median_decimal, power_probabilities
 
 
 @dataclass(frozen=True, slots=True)
@@ -21,9 +22,22 @@ class OfferEvaluation:
     opponent_id: str
     offered_odds: Decimal
     consensus_probability: Decimal
+    calibrated_probability: Decimal | None
+    conservative_probability: Decimal | None
+    raw_expected_value: Decimal
     expected_value: Decimal
     observed_at: datetime
     favourite: bool
+    calibration_phase: str
+    calibration_training_games: int
+
+    @property
+    def decision_probability(self) -> Decimal:
+        """Return the probability actually used for EV and Kelly."""
+
+        if self.conservative_probability is not None:
+            return self.conservative_probability
+        return self.consensus_probability
 
 
 @dataclass(frozen=True, slots=True)
@@ -35,9 +49,7 @@ class Candidate:
     def closing_value(self) -> Decimal | None:
         if self.closing_consensus_probability is None:
             return None
-        return (
-            self.offer.offered_odds * self.closing_consensus_probability - Decimal(1)
-        )
+        return self.offer.offered_odds * self.closing_consensus_probability - Decimal(1)
 
 
 @dataclass(frozen=True, slots=True)
@@ -56,6 +68,9 @@ def evaluate_game(
     *,
     minimum_bookmakers: int,
     ev_threshold: Decimal,
+    calibration: BootstrapCalibration | None = None,
+    calibration_phase: str = "uncalibrated",
+    select_candidate: bool = True,
 ) -> tuple[tuple[OfferEvaluation, ...], Candidate | None]:
     """Evaluate every entry offer and select at most one highest-EV candidate."""
 
@@ -66,7 +81,7 @@ def evaluate_game(
         return (), None
     probabilities = {
         snapshot.bookmaker_id: dict(
-            proportional_probabilities(
+            power_probabilities(
                 (
                     (
                         game.home_team_id,
@@ -83,19 +98,36 @@ def evaluate_game(
     }
     evaluations: list[OfferEvaluation] = []
     for snapshot in entries:
+        home_peers = tuple(
+            prices[game.home_team_id]
+            for bookmaker_id, prices in probabilities.items()
+            if bookmaker_id != snapshot.bookmaker_id
+        )
+        if not home_peers:
+            continue
+        raw_home_probability = median_decimal(home_peers)
         for team_id, opponent_id in (
             (game.home_team_id, game.away_team_id),
             (game.away_team_id, game.home_team_id),
         ):
-            peers = tuple(
-                prices[team_id]
-                for bookmaker_id, prices in probabilities.items()
-                if bookmaker_id != snapshot.bookmaker_id
+            probability = (
+                raw_home_probability
+                if team_id == game.home_team_id
+                else Decimal(1) - raw_home_probability
             )
-            if not peers:
-                continue
             offered = snapshot.price_for(team_id)
-            probability = median_decimal(peers)
+            raw_ev = expected_value(offered, probability)
+            calibrated_probability: Decimal | None = None
+            conservative_probability: Decimal | None = None
+            decision_probability = probability
+            if calibration is not None:
+                calibrated_probability, conservative_probability = (
+                    calibration.probabilities_for_side(
+                        raw_home_probability,
+                        home_side=team_id == game.home_team_id,
+                    )
+                )
+                decision_probability = conservative_probability
             evaluations.append(
                 OfferEvaluation(
                     game_id=game.game_id,
@@ -105,11 +137,22 @@ def evaluate_game(
                     opponent_id=opponent_id,
                     offered_odds=offered,
                     consensus_probability=probability,
-                    expected_value=expected_value(offered, probability),
+                    calibrated_probability=calibrated_probability,
+                    conservative_probability=conservative_probability,
+                    raw_expected_value=raw_ev,
+                    expected_value=expected_value(offered, decision_probability),
                     observed_at=snapshot.observed_at,
                     favourite=offered < Decimal("2"),
+                    calibration_phase=calibration_phase,
+                    calibration_training_games=(
+                        calibration.training_observations
+                        if calibration is not None
+                        else 0
+                    ),
                 )
             )
+    if not select_candidate:
+        return tuple(evaluations), None
     qualifying = tuple(
         evaluation
         for evaluation in evaluations
@@ -151,14 +194,12 @@ def settle_candidates(
         winning_side = result.winner_team_side
         if winning_side is None:
             continue
-        winner = (
-            game.home_team_id if winning_side == "home" else game.away_team_id
-        )
+        winner = game.home_team_id if winning_side == "home" else game.away_team_id
         won = candidate.offer.team_id == winner
         flat_profit = (
             candidate.offer.offered_odds - Decimal(1) if won else Decimal("-1")
         )
-        probability = candidate.offer.consensus_probability
+        probability = candidate.offer.decision_probability
         b = candidate.offer.offered_odds - Decimal(1)
         raw_fraction = (b * probability - (Decimal(1) - probability)) / b
         stake = equity * kelly_fraction * max(Decimal(0), raw_fraction)
@@ -176,6 +217,39 @@ def settle_candidates(
     return tuple(settled)
 
 
+def market_home_probability(
+    game: Game,
+    entry_snapshots: tuple[MoneylineSnapshot, ...],
+    *,
+    minimum_bookmakers: int,
+) -> Decimal | None:
+    """Return one all-bookmaker home probability for calibration training."""
+
+    entries = tuple(
+        snapshot for snapshot in entry_snapshots if snapshot.game_id == game.game_id
+    )
+    if len({snapshot.bookmaker_id for snapshot in entries}) < minimum_bookmakers:
+        return None
+    home_probabilities = tuple(
+        dict(
+            power_probabilities(
+                (
+                    (
+                        game.home_team_id,
+                        snapshot.price_for(game.home_team_id),
+                    ),
+                    (
+                        game.away_team_id,
+                        snapshot.price_for(game.away_team_id),
+                    ),
+                )
+            )
+        )[game.home_team_id]
+        for snapshot in entries
+    )
+    return median_decimal(home_probabilities)
+
+
 def _closing_probability(
     game: Game,
     snapshots: tuple[MoneylineSnapshot, ...],
@@ -186,7 +260,7 @@ def _closing_probability(
 ) -> Decimal | None:
     values = tuple(
         dict(
-            proportional_probabilities(
+            power_probabilities(
                 (
                     (
                         game.home_team_id,

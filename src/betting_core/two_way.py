@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from decimal import Decimal
+from decimal import Decimal, getcontext
 from statistics import median
 
 
@@ -104,6 +104,52 @@ def proportional_probabilities(
     return (
         (prices[0][0], implied[0] / overround),
         (prices[1][0], implied[1] / overround),
+    )
+
+
+def power_probabilities(
+    prices: tuple[tuple[str, Decimal], tuple[str, Decimal]],
+) -> tuple[tuple[str, Decimal], tuple[str, Decimal]]:
+    """Remove margin by finding ``k`` such that the powered probabilities sum to 1."""
+
+    if len({outcome_id for outcome_id, _ in prices}) != 2:
+        raise ValueError("prices must contain two distinct outcomes")
+    for _, price in prices:
+        if not _valid_odds(price):
+            raise ValueError("decimal odds must be finite and greater than 1.0")
+
+    implied = tuple(Decimal(1) / price for _, price in prices)
+    implied_total = sum(implied, Decimal(0))
+    if implied_total == 1:
+        return ((prices[0][0], implied[0]), (prices[1][0], implied[1]))
+    if implied[0] == implied[1]:
+        half = Decimal("0.5")
+        return ((prices[0][0], half), (prices[1][0], half))
+
+    lower = Decimal(0)
+    upper = Decimal(1)
+    while sum((probability**upper for probability in implied), Decimal(0)) > 1:
+        upper *= 2
+
+    tolerance = Decimal(1).scaleb(-(getcontext().prec - 4))
+    while upper - lower > tolerance:
+        exponent = (lower + upper) / 2
+        total = sum(
+            (probability**exponent for probability in implied),
+            Decimal(0),
+        )
+        if total > 1:
+            lower = exponent
+        else:
+            upper = exponent
+
+    exponent = (lower + upper) / 2
+    powered = tuple(probability**exponent for probability in implied)
+    powered_total = sum(powered, Decimal(0))
+    first_probability = powered[0] / powered_total
+    return (
+        (prices[0][0], first_probability),
+        (prices[1][0], Decimal(1) - first_probability),
     )
 
 

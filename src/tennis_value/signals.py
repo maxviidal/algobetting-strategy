@@ -12,7 +12,7 @@ from tennis_value.data.domain import Match, OddsSnapshot, PlayerId
 from tennis_value.pricing import (
     DeViggedMarket,
     expected_value,
-    proportional_devig,
+    power_devig,
 )
 
 
@@ -152,8 +152,7 @@ def evaluate_market(
         )
 
     markets = tuple(
-        proportional_devig(snapshot, calculated_at=calculation_time)
-        for snapshot in selected
+        power_devig(snapshot, calculated_at=calculation_time) for snapshot in selected
     )
     evaluations = tuple(
         _evaluate_offer(
@@ -209,8 +208,7 @@ def _select_latest_eligible_snapshots(
             reason = ExclusionReason.FUTURE_QUOTE
             detail = "snapshot was observed after decision_at"
         elif (
-            maximum_age is not None
-            and decision_at - snapshot.observed_at > maximum_age
+            maximum_age is not None and decision_at - snapshot.observed_at > maximum_age
         ):
             reason = ExclusionReason.STALE_QUOTE
             detail = "snapshot exceeds maximum_quote_age_seconds"

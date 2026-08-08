@@ -47,11 +47,7 @@ NBA_TEAMS = tuple(
     for index, (code, name) in enumerate(_TEAM_DATA, start=1)
 )
 
-_ALIASES = {
-    _key(value): code
-    for code, name in _TEAM_DATA
-    for value in (code, name)
-}
+_ALIASES = {_key(value): code for code, name in _TEAM_DATA for value in (code, name)}
 _ALIASES.update(
     {
         _key("LA Clippers"): "LAC",
@@ -80,9 +76,7 @@ def resolve_provider_team(source: str, provider_id: str) -> Team:
     """Resolve one explicit provider team ID."""
 
     matches = tuple(
-        team
-        for team in NBA_TEAMS
-        if (source, provider_id) in team.provider_ids
+        team for team in NBA_TEAMS if (source, provider_id) in team.provider_ids
     )
     if len(matches) != 1:
         raise KeyError(f"unknown {source} team ID: {provider_id!r}")

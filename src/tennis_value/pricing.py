@@ -1,4 +1,4 @@
-"""Pure probability and proportional margin-removal calculations."""
+"""Pure probability and power margin-removal calculations."""
 
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -11,11 +11,11 @@ from betting_core import (
     fair_odds as core_fair_odds,
 )
 from betting_core import (
-    proportional_probabilities,
+    power_probabilities,
 )
 from tennis_value.data.domain import OddsSnapshot, PlayerId
 
-PROPORTIONAL_MARGIN_METHOD = "proportional"
+POWER_MARGIN_METHOD = "power"
 
 
 @dataclass(frozen=True, slots=True)
@@ -50,12 +50,12 @@ class DeViggedMarket:
         raise KeyError(f"player_id {player_id!r} is not present in this market")
 
 
-def proportional_devig(
+def power_devig(
     snapshot: OddsSnapshot,
     *,
     calculated_at: datetime,
 ) -> DeViggedMarket:
-    """Remove a two-way market's margin by proportional normalization."""
+    """Remove a two-way market's margin with the power method."""
 
     _require_utc(calculated_at, "calculated_at")
     ordered_prices = tuple(sorted(snapshot.prices, key=lambda price: price.player_id))
@@ -65,7 +65,7 @@ def proportional_devig(
         raise ValueError("snapshot overround must be finite and greater than zero")
 
     fair = dict(
-        proportional_probabilities(
+        power_probabilities(
             (
                 (str(ordered_prices[0].player_id), ordered_prices[0].decimal_odds),
                 (str(ordered_prices[1].player_id), ordered_prices[1].decimal_odds),
@@ -88,7 +88,7 @@ def proportional_devig(
         observed_at=snapshot.observed_at,
         prices=(devigged[0], devigged[1]),
         overround=overround,
-        method=PROPORTIONAL_MARGIN_METHOD,
+        method=POWER_MARGIN_METHOD,
         calculated_at=calculated_at,
     )
 

@@ -245,9 +245,7 @@ def evaluate_stored_response(
                 settings=settings,
             )
         except InsufficientBookmakersError as error:
-            skipped.append(
-                SkippedStoredMatch(match=match, reason=str(error))
-            )
+            skipped.append(SkippedStoredMatch(match=match, reason=str(error)))
             continue
         evaluated.append(EvaluatedStoredMatch(match=match, result=result))
 
@@ -278,8 +276,7 @@ def _discover_player_names(
             markets = bookmaker.get("markets")
             if not isinstance(markets, list):
                 raise WorkflowError(
-                    f"{context}.bookmakers[{bookmaker_index}].markets "
-                    "must be an array"
+                    f"{context}.bookmakers[{bookmaker_index}].markets must be an array"
                 )
             for market in markets:
                 if not isinstance(market, dict) or market.get("key") != "h2h":
@@ -289,9 +286,7 @@ def _discover_player_names(
                     raise WorkflowError(f"{context} h2h outcomes must be an array")
                 for outcome in outcomes:
                     if not isinstance(outcome, dict):
-                        raise WorkflowError(
-                            f"{context} h2h outcome must be an object"
-                        )
+                        raise WorkflowError(f"{context} h2h outcome must be an object")
                     names.add(
                         _required_json_string(
                             outcome.get("name"),

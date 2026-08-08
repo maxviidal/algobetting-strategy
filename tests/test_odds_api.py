@@ -47,9 +47,7 @@ def test_fetch_current_odds_builds_decimal_h2h_request_and_hides_key_in_source(
         "dateFormat": ["iso"],
     }
     assert result.response.raw_bytes == b"[]"
-    assert result.response.source == (
-        "the-odds-api:v4:current:tennis_atp_wimbledon"
-    )
+    assert result.response.source == ("the-odds-api:v4:current:tennis_atp_wimbledon")
     assert "secret-key" not in result.response.source
     assert result.quota.remaining == 499
     assert result.quota.used == 1
@@ -110,9 +108,7 @@ def test_fetch_rejects_invalid_quota_header(
     monkeypatch.setattr(odds_api_module, "_http_get", fake_http_get)
 
     with pytest.raises(OddsApiError, match="x-requests-remaining"):
-        OddsApiClient("secret-key").fetch_current_odds(
-            "tennis_atp_wimbledon"
-        )
+        OddsApiClient("secret-key").fetch_current_odds("tennis_atp_wimbledon")
 
 
 @pytest.mark.parametrize(

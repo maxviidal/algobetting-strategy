@@ -99,9 +99,7 @@ def test_result_without_exact_tip_time_is_quarantined_not_guessed() -> None:
     }
 
     assert normalize_balldontlie_games((payload,)) == ()
-    assert balldontlie_quarantines((payload,)) == (
-        "857680:missing_scheduled_datetime",
-    )
+    assert balldontlie_quarantines((payload,)) == ("857680:missing_scheduled_datetime",)
 
 
 def test_conflicting_cross_provider_match_is_quarantined() -> None:

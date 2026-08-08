@@ -21,15 +21,24 @@ def test_historical_requests_nine_books_in_three_groups(
     responses = OddsPapiClient("secret", timeout_seconds=12).fetch_historical_odds(
         "fixture-1",
         bookmakers=(
-            "book-1", "book-2", "book-3", "book-4", "book-5", "book-6",
-            "book-7", "book-8", "book-9",
+            "book-1",
+            "book-2",
+            "book-3",
+            "book-4",
+            "book-5",
+            "book-6",
+            "book-7",
+            "book-8",
+            "book-9",
         ),
     )
 
     assert len(responses) == 3
-    assert [
-        parse_qs(urlparse(url).query)["bookmakers"][0] for url in urls
-    ] == ["book-1,book-2,book-3", "book-4,book-5,book-6", "book-7,book-8,book-9"]
+    assert [parse_qs(urlparse(url).query)["bookmakers"][0] for url in urls] == [
+        "book-1,book-2,book-3",
+        "book-4,book-5,book-6",
+        "book-7,book-8,book-9",
+    ]
     assert all("secret" not in response.raw_bytes.decode() for response in responses)
 
 
@@ -38,9 +47,7 @@ def test_client_rejects_invalid_historical_inputs() -> None:
     with pytest.raises(ValueError, match="at least one"):
         client.fetch_historical_odds("fixture-1", bookmakers=())
     with pytest.raises(ValueError, match="duplicates"):
-        client.fetch_historical_odds(
-            "fixture-1", bookmakers=("book-1", "book-1")
-        )
+        client.fetch_historical_odds("fixture-1", bookmakers=("book-1", "book-1"))
 
 
 def test_client_rejects_non_json_provider_response(

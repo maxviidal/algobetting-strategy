@@ -1,12 +1,12 @@
 [competition]
-profile = "five_season_research"
+profile = "development_pilot_2023_24"
 sport_key = "basketball_nba"
 league = "NBA"
 regular_season_only = true
-season_start_years = [2021, 2022, 2023, 2024, 2025]
-development_seasons = ["2021-22", "2022-23", "2023-24"]
-validation_seasons = ["2024-25"]
-holdout_seasons = ["2025-26"]
+season_start_years = [2023]
+development_seasons = ["2023-24"]
+validation_seasons = []
+holdout_seasons = []
 
 [market]
 regions = ["eu"]
@@ -28,7 +28,7 @@ development_thresholds = [0.02, 0.03, 0.075, 0.10]
 maximum_candidates_per_game = 1
 
 [calibration]
-enabled = false
+enabled = true
 method = "logistic"
 training_fraction = 0.60
 validation_fraction = 0.20

@@ -3,7 +3,7 @@ minimum_bookmakers = 5
 maximum_quote_age_seconds = 300
 
 [pricing]
-margin_method = "proportional"
+margin_method = "power"
 consensus_method = "median"
 leave_one_bookmaker_out = true
 

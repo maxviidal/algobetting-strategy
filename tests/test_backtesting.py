@@ -47,7 +47,7 @@ def make_evaluation(
         minimum_peer_probability=Decimal("0.48"),
         maximum_peer_probability=Decimal("0.52"),
         peer_probability_range=Decimal("0.04"),
-        margin_method="proportional",
+        margin_method="power",
         consensus_method="median",
         decision_at=DECISION_AT,
         calculated_at=DECISION_AT,
@@ -68,8 +68,7 @@ def test_select_best_candidates_keeps_highest_sportsbook_price() -> None:
     )
 
     selected_keys = [
-        (candidate.player_id, candidate.bookmaker_id)
-        for candidate in selected
+        (candidate.player_id, candidate.bookmaker_id) for candidate in selected
     ]
     assert selected_keys == [
         (1, "book-b"),

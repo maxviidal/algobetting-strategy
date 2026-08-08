@@ -85,9 +85,7 @@ class MatchResult:
                     "completed results require a positive winner_player_id"
                 )
         elif self.winner_player_id is not None:
-            raise ValueError(
-                "non-completed results must not specify winner_player_id"
-            )
+            raise ValueError("non-completed results must not specify winner_player_id")
 
 
 @dataclass(frozen=True, slots=True)

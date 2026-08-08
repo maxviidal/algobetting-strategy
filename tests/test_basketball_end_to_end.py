@@ -85,9 +85,7 @@ def test_synthetic_five_book_pipeline_selects_settles_and_exports(
         market_exclusions=(),
         result_quarantines=(),
     )
-    settings = load_basketball_settings(
-        Path("configs/basketball_research.toml")
-    )
+    settings = load_basketball_settings(Path("configs/basketball_research.toml"))
 
     run = run_backtest(dataset, settings)
     paths = export_reports(
@@ -104,6 +102,15 @@ def test_synthetic_five_book_pipeline_selects_settles_and_exports(
     assert run.settled[0].won is True
     assert run.settled[0].flat_profit == Decimal("2.0")
     assert all(path.exists() for path in paths)
+    assert {path.name for path in paths} == {
+        "nba_moneyline_games.csv",
+        "nba_moneyline_offers.csv",
+        "nba_moneyline_summary.json",
+        "nba_moneyline_candidates.csv",
+        "nba_moneyline_equity_curve.csv",
+        "nba_moneyline_exclusions.csv",
+        "nba_moneyline_summary.csv",
+    }
     summary = json.loads(paths[2].read_text())
     assert summary["holdout_2025_26"]["candidates"] == 1
     assert summary["acceptance"]["conclusion"] == "inconclusive"

@@ -65,8 +65,6 @@ def test_unknown_name_is_not_automatically_created() -> None:
 
 
 def test_get_player_returns_display_name_separately_from_id() -> None:
-    resolver = InMemoryPlayerResolver(
-        players=(Player(42, "Tallon Griekspoor"),)
-    )
+    resolver = InMemoryPlayerResolver(players=(Player(42, "Tallon Griekspoor"),))
 
     assert resolver.get_player(42) == Player(42, "Tallon Griekspoor")

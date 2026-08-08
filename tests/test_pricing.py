@@ -4,7 +4,7 @@ from decimal import Decimal
 import pytest
 
 from tennis_value.data.domain import MatchWinnerPrice, OddsSnapshot
-from tennis_value.pricing import expected_value, fair_odds, proportional_devig
+from tennis_value.pricing import expected_value, fair_odds, power_devig
 
 CALCULATED_AT = datetime(2026, 7, 30, 12, 0, tzinfo=UTC)
 
@@ -34,11 +34,11 @@ def make_snapshot(first_odds: str, second_odds: str) -> OddsSnapshot:
         ("2.05", "2.05"),
     ],
 )
-def test_proportional_devig_probabilities_sum_to_one(
+def test_power_devig_probabilities_sum_to_one(
     first_odds: str,
     second_odds: str,
 ) -> None:
-    market = proportional_devig(
+    market = power_devig(
         make_snapshot(first_odds, second_odds),
         calculated_at=CALCULATED_AT,
     )
@@ -52,22 +52,34 @@ def test_proportional_devig_probabilities_sum_to_one(
         Decimal(1) / Decimal(first_odds) + Decimal(1) / Decimal(second_odds)
     )
     assert market.snapshot_id == "snapshot-1"
-    assert market.method == "proportional"
+    assert market.method == "power"
     assert market.calculated_at == CALCULATED_AT
 
 
-def test_proportional_devig_symmetric_market() -> None:
-    market = proportional_devig(
+def test_power_devig_symmetric_market() -> None:
+    market = power_devig(
         make_snapshot("1.91", "1.91"),
         calculated_at=CALCULATED_AT,
     )
 
     assert all(
-        probability == pytest.approx(Decimal("0.5"), abs=Decimal("1e-26"))
-        for probability in (
-            price.fair_probability for price in market.prices
-        )
+        probability == Decimal("0.5")
+        for probability in (price.fair_probability for price in market.prices)
     )
+
+
+def test_power_devig_differs_from_proportional_for_asymmetric_market() -> None:
+    market = power_devig(
+        make_snapshot("1.50", "2.80"),
+        calculated_at=CALCULATED_AT,
+    )
+
+    favourite_probability = market.probability_for(1)
+    proportional_probability = (Decimal(1) / Decimal("1.50")) / (
+        Decimal(1) / Decimal("1.50") + Decimal(1) / Decimal("2.80")
+    )
+
+    assert favourite_probability > proportional_probability
 
 
 @pytest.mark.parametrize(
@@ -92,7 +104,7 @@ def test_fair_odds_is_probability_reciprocal() -> None:
 
 def test_pricing_requires_utc_calculation_time() -> None:
     with pytest.raises(ValueError, match="calculated_at must be in UTC"):
-        proportional_devig(
+        power_devig(
             make_snapshot("2", "2"),
             calculated_at=datetime.fromisoformat("2026-07-30T14:00:00+02:00"),
         )

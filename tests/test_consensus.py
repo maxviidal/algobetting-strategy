@@ -8,7 +8,7 @@ from tennis_value.consensus import (
     median_probability,
 )
 from tennis_value.data.domain import MatchWinnerPrice, OddsSnapshot
-from tennis_value.pricing import DeViggedMarket, proportional_devig
+from tennis_value.pricing import DeViggedMarket, power_devig
 
 CALCULATED_AT = datetime(2026, 7, 30, 12, 0, tzinfo=UTC)
 
@@ -27,7 +27,7 @@ def make_market(bookmaker_id: str, first_probability: str) -> DeViggedMarket:
         source="test",
         source_event_id="event-1",
     )
-    return proportional_devig(snapshot, calculated_at=CALCULATED_AT)
+    return power_devig(snapshot, calculated_at=CALCULATED_AT)
 
 
 def test_median_probability_handles_odd_and_even_counts() -> None:
@@ -62,7 +62,7 @@ def test_leave_one_out_consensus_excludes_target_bookmaker() -> None:
 
     assert estimate.probability == pytest.approx(
         Decimal("0.55"),
-        abs=Decimal("1e-26"),
+        abs=Decimal("1e-25"),
     )
     assert estimate.peer_count == 4
     assert "snapshot-a" not in estimate.peer_snapshot_ids
@@ -74,13 +74,13 @@ def test_leave_one_out_consensus_excludes_target_bookmaker() -> None:
     )
     assert estimate.minimum_peer_probability == pytest.approx(
         Decimal("0.4"),
-        abs=Decimal("1e-26"),
+        abs=Decimal("1e-25"),
     )
     assert estimate.maximum_peer_probability == pytest.approx(
         Decimal("0.7"),
-        abs=Decimal("1e-26"),
+        abs=Decimal("1e-25"),
     )
     assert estimate.peer_probability_range == pytest.approx(
         Decimal("0.3"),
-        abs=Decimal("1e-26"),
+        abs=Decimal("2e-25"),
     )

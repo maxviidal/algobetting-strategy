@@ -16,6 +16,7 @@ class CachedResponse:
     query_time: str
     provider_snapshot_at: str | None
     checksum: str
+    response_headers: dict[str, str] | None = None
 
 
 def write_cached_response(
@@ -25,6 +26,7 @@ def write_cached_response(
     source: str,
     query_time: datetime | str,
     provider_snapshot_at: str | None,
+    response_headers: dict[str, str] | None = None,
 ) -> CachedResponse:
     """Atomically preserve exact response bytes plus retrieval provenance."""
 
@@ -37,6 +39,7 @@ def write_cached_response(
         ),
         "provider_snapshot_at": provider_snapshot_at,
         "checksum": checksum,
+        "response_headers": response_headers or {},
         "payload_text": payload_bytes.decode("utf-8"),
     }
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -57,6 +60,7 @@ def write_cached_response(
         query_time=str(envelope["query_time"]),
         provider_snapshot_at=provider_snapshot_at,
         checksum=checksum,
+        response_headers=response_headers,
     )
 
 
@@ -72,6 +76,12 @@ def read_cached_response(path: Path) -> CachedResponse:
         raise ValueError(f"invalid cache envelope: {path}")
     if sha256(payload_text.encode()).hexdigest() != checksum:
         raise ValueError(f"cache checksum mismatch: {path}")
+    raw_headers = envelope.get("response_headers", {})
+    if not isinstance(raw_headers, dict) or not all(
+        isinstance(key, str) and isinstance(value, str)
+        for key, value in raw_headers.items()
+    ):
+        raise ValueError(f"invalid cache response headers: {path}")
     return CachedResponse(
         payload=json.loads(payload_text),
         source=str(envelope["source"]),
@@ -82,6 +92,7 @@ def read_cached_response(path: Path) -> CachedResponse:
             else None
         ),
         checksum=checksum,
+        response_headers={str(key): str(value) for key, value in raw_headers.items()},
     )
 
 

@@ -101,9 +101,7 @@ def test_collect_command_preserves_raw_response_and_reports_quota(
     assert "secret-key" not in output.out
     assert output.err == ""
     with sqlite3.connect(database_path) as connection:
-        row = connection.execute(
-            "SELECT raw_bytes FROM raw_odds_responses"
-        ).fetchone()
+        row = connection.execute("SELECT raw_bytes FROM raw_odds_responses").fetchone()
     assert row == (raw_response,)
 
 
@@ -115,9 +113,7 @@ def test_local_commands_approve_normalize_and_evaluate_without_api_call(
     database_path = tmp_path / "odds.sqlite3"
     bookmakers = []
     for bookmaker in ("a", "b", "c", "d", "e"):
-        first_odds, second_odds = (
-            (3.0, 1.5) if bookmaker == "a" else (2.0, 2.0)
-        )
+        first_odds, second_odds = (3.0, 1.5) if bookmaker == "a" else (2.0, 2.0)
         bookmakers.append(
             {
                 "key": bookmaker,
@@ -157,42 +153,44 @@ def test_local_commands_approve_normalize_and_evaluate_without_api_call(
         SqliteOddsRepository(connection).save_raw_response(response)
     monkeypatch.delenv("ODDS_API_KEY", raising=False)
 
-    assert main(
-        ("players", "pending", "--database", str(database_path))
-    ) == 0
+    assert main(("players", "pending", "--database", str(database_path))) == 0
     pending_output = capsys.readouterr()
     assert "Pending player names: 2" in pending_output.out
     assert "Player One\tunknown" in pending_output.out
     assert "Player Two\tunknown" in pending_output.out
 
-    assert main(
-        (
-            "players",
-            "approve",
-            "--all",
-            "--database",
-            str(database_path),
+    assert (
+        main(
+            (
+                "players",
+                "approve",
+                "--all",
+                "--database",
+                str(database_path),
+            )
         )
-    ) == 0
+        == 0
+    )
     approval_output = capsys.readouterr()
     assert "Approved player identities: 2" in approval_output.out
 
-    assert main(
-        ("normalize", "--database", str(database_path))
-    ) == 0
+    assert main(("normalize", "--database", str(database_path))) == 0
     normalization_output = capsys.readouterr()
     assert "Matches saved: 1" in normalization_output.out
     assert "Bookmaker snapshots saved: 5" in normalization_output.out
 
-    assert main(
-        (
-            "evaluate",
-            "--database",
-            str(database_path),
-            "--config",
-            "configs/research.toml",
+    assert (
+        main(
+            (
+                "evaluate",
+                "--database",
+                str(database_path),
+                "--config",
+                "configs/research.toml",
+            )
         )
-    ) == 0
+        == 0
+    )
     evaluation_output = capsys.readouterr()
     assert "Matches evaluated: 1" in evaluation_output.out
     assert "Offers evaluated: 10" in evaluation_output.out

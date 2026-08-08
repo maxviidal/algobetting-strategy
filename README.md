@@ -31,7 +31,7 @@ New modules and directories should be added only when working code needs them.
 `basketball_value` implements a research-only NBA regular-season moneyline
 backtest for 2021–22 through 2025–26. It does not predict games from team
 statistics and does not place bets. The locked model uses EU decimal `h2h`
-prices, proportional de-vigging, a leave-one-bookmaker-out median consensus,
+prices, power-method de-vigging, a leave-one-bookmaker-out median consensus,
 and a 5% expected-value threshold. Entry is measured 60 minutes before
 scheduled tip and closing value five minutes before tip. At least five
 complete fixed-odds bookmakers are required, and quotes older than 30 minutes
@@ -52,32 +52,85 @@ quota manifest. It makes no paid historical-odds requests:
 basketball-value fetch-nba-history
 ```
 
+For the lower-cost development pilot, use the separate 2023–24 profile. It
+leaves the five-season research design unchanged and has a maximum initial cost
+of 14,840 credits:
+
+```bash
+python -m basketball_value preflight-nba-moneyline \
+  --config configs/basketball_pilot_2023_24.toml \
+  --output-directory reports/nba_2023_24
+```
+
+Preflight uses the quota-free sports endpoint to read account quota headers.
+It validates the season, cached schedule, exact remaining request count, API
+key presence, and writable cache/report locations. It makes no historical-odds
+requests. `READY_TO_PURCHASE` means the configuration is sound but the current
+plan lacks enough credits; after subscribing, run preflight again and require
+`READY_TO_DOWNLOAD` before continuing.
+
 Review `data/nba_moneyline/quota_manifest.json`. To authorize the historical
 requests, rerun with the exact `expected_credits` value printed by the first
 pass:
 
 ```bash
-basketball-value fetch-nba-history --confirm-quota-cost EXPECTED_CREDITS
+python -m basketball_value fetch-nba-history \
+  --config configs/basketball_pilot_2023_24.toml \
+  --confirm-quota-cost EXPECTED_ADDITIONAL_CREDITS
 ```
 
 The value must match exactly or the command stops. Exact provider responses
 are written atomically with query time, provider snapshot time, and checksum.
-Successful and explicit no-data requests are reused; a recorded failure is
-left observable and is not silently retried.
+Successful and explicit no-data requests are reused. Rate limits, temporary
+provider failures, and network interruptions use bounded retries. Progress and
+the provider's reported request cost, used credits, and remaining credits are
+retained in the manifest. The run stops before another request if the provider
+reports fewer than ten remaining credits.
 
 Once the cache is complete, both remaining commands are offline:
 
 ```bash
-basketball-value backtest-nba-moneyline
-basketball-value export-nba-report
+python -m basketball_value backtest-nba-moneyline \
+  --config configs/basketball_pilot_2023_24.toml
+python -m basketball_value export-nba-report \
+  --config configs/basketball_pilot_2023_24.toml \
+  --output-directory reports/nba_2023_24
 ```
 
-The export creates game-level and offer-level CSV files plus a JSON summary
-containing coverage, calibration, Brier score, log loss, closing value,
+The 2023–24 pilot applies calibration without requesting or depending on any
+other season. Whole UTC game dates are divided chronologically into an initial
+60% calibration-training phase, a 20% validation phase, and a final untouched
+20% test phase. Games in the training phase cannot become betting candidates.
+The validation calibrator is fitted only on training outcomes; the final-test
+calibrator is then fitted on the earlier training and validation outcomes.
+
+Calibration uses one home-win row per eligible game, drawn from the 60-minute
+entry consensus across all valid bookmakers. It fits the locked logistic form
+`logit(p_calibrated) = intercept + slope * logit(p_market)` with an L2 penalty
+toward the identity mapping (`intercept = 0`, `slope = 1`). It never fits only
+on bets that passed the EV threshold, never calibrates both sides independently,
+and never uses the five-minute closing snapshot as an entry feature.
+
+For uncertainty, the configured 200 deterministic bootstrap refits resample
+seven-day chronological blocks. The fifth percentile for the selected side is
+reported as `p_safe`. Candidate selection and quarter-Kelly use
+`EV_safe = offered_odds * p_safe - 1`; raw consensus EV and point-calibrated
+probability remain separate columns for inspection. Threshold exploration is
+disabled for this profile so the final 20% remains untouched.
+
+The export creates game-, offer-, candidate-, equity-curve-, exclusion-, and
+summary-level CSV files plus a JSON summary
+containing coverage, raw-versus-calibrated Brier score and log loss, closing value,
 flat-stake ROI, turnover, hit rate, drawdown, 95% confidence intervals,
 fractional-Kelly sensitivity, and the configured breakdowns. Development-only
-threshold tables are reported separately. The validation and 2025–26 holdout
-threshold remain fixed at 5%.
+threshold tables are reported separately for the uncalibrated five-season
+profile. The validation and 2025–26 holdout threshold remain fixed at 5%.
+
+Because 2023–24 supplies both the earlier fitting data and the later evaluation
+data, the calibrated pilot conclusion is always `exploratory_only`. Its final
+20% is a legitimate within-season chronological test, but it cannot establish
+that calibration or profitability will survive a new season. The five-season
+research profile remains available separately and is not required by the pilot.
 
 The final conclusion is `supported` only when the cache and matching acceptance
 checks pass and the untouched 2025–26 holdout contains at least 300 candidates,
@@ -141,8 +194,8 @@ eligible bookmakers in total. A quote observed after the decision time is never
 used.
 
 Each complete two-player market is converted from decimal odds to implied
-probabilities and proportionally normalized so its fair probabilities sum to
-one. Every offered outcome is then compared with the median fair probability
+probabilities. The power method finds a common exponent `k` such that the
+powered implied probabilities sum to one. Every offered outcome is then compared with the median fair probability
 from all other eligible bookmakers. The evaluated bookmaker is excluded from
 its own benchmark.
 
@@ -159,7 +212,7 @@ are research signals, not guarantees or instructions to place a bet.
 
 The settings in `configs/development.toml` and `configs/research.toml` control
 quote age, minimum bookmaker coverage, the candidate threshold, and diagnostic
-boundaries. Pricing v1 supports proportional margin removal, median consensus,
+boundaries. Pricing supports power margin removal, median consensus,
 and leave-one-bookmaker-out evaluation only.
 
 ## Odds history

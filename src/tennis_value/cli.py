@@ -287,10 +287,7 @@ def _list_tennis_sports(client: OddsApiClient) -> int:
         sport
         for sport in client.list_sports()
         if sport.active
-        and (
-            "tennis" in sport.group.casefold()
-            or "tennis" in sport.key.casefold()
-        )
+        and ("tennis" in sport.group.casefold() or "tennis" in sport.key.casefold())
     )
     if not sports:
         print("No active tennis tournaments were returned.")
@@ -358,9 +355,7 @@ def _approve_players(
             restore_ingested_response(stored),
         )
         selected_names = (
-            tuple(item.raw_name for item in pending)
-            if approve_all
-            else names
+            tuple(item.raw_name for item in pending) if approve_all else names
         )
         approved = approve_pending_players(
             registry,
@@ -404,9 +399,7 @@ def _evaluate(
             response_id=response_id,
             decision_at=decision_at,
         )
-        evaluated_offers = sum(
-            len(item.result.evaluations) for item in batch.evaluated
-        )
+        evaluated_offers = sum(len(item.result.evaluations) for item in batch.evaluated)
         candidates = [
             (item.match, evaluation)
             for item in batch.evaluated
@@ -528,9 +521,7 @@ def _print_quota(quota: OddsApiQuota) -> None:
 
 
 def _parse_regions(value: str) -> tuple[str, ...]:
-    regions = tuple(
-        region.strip() for region in value.split(",") if region.strip()
-    )
+    regions = tuple(region.strip() for region in value.split(",") if region.strip())
     if not regions:
         raise ValueError("at least one region is required")
     return regions

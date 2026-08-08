@@ -3,6 +3,7 @@
 import json
 from dataclasses import dataclass
 from datetime import datetime
+from email.message import Message
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
@@ -21,10 +22,19 @@ class BasketballRateLimitError(BasketballProviderError):
         self.retry_after_seconds = retry_after_seconds
 
 
+class BasketballNetworkError(BasketballProviderError):
+    """Temporary connection failure that can be retried safely."""
+
+
+class BasketballTransientProviderError(BasketballProviderError):
+    """Temporary provider-side HTTP failure that can be retried safely."""
+
+
 @dataclass(frozen=True, slots=True)
 class ProviderResponse:
     raw_bytes: bytes
     payload: object
+    headers: dict[str, str] | None = None
 
 
 class BallDontLieClient:
@@ -100,6 +110,16 @@ class TheOddsApiHistoricalClient:
         )
         return _open(request, self._timeout)
 
+    def fetch_account_status(self) -> ProviderResponse:
+        """Use the quota-free sports endpoint to read account quota headers."""
+
+        parameters = urlencode({"apiKey": self._api_key})
+        request = Request(
+            f"{self._base_url}/sports?{parameters}",
+            headers={"Accept": "application/json"},
+        )
+        return _open(request, self._timeout)
+
 
 def _open(request: Request, timeout: float) -> ProviderResponse:
     try:
@@ -115,15 +135,25 @@ def _open(request: Request, timeout: float) -> ProviderResponse:
             except ValueError:
                 retry_after_seconds = None
             raise BasketballRateLimitError(retry_after_seconds) from error
-        raise BasketballProviderError(
-            f"provider returned HTTP {error.code}"
-        ) from error
+        if error.code in {500, 502, 503, 504}:
+            raise BasketballTransientProviderError(
+                f"provider temporarily returned HTTP {error.code}"
+            ) from error
+        raise BasketballProviderError(f"provider returned HTTP {error.code}") from error
     except (URLError, OSError) as error:
-        raise BasketballProviderError("provider network request failed") from error
+        raise BasketballNetworkError("provider network request failed") from error
     try:
         payload: Any = json.loads(raw)
     except json.JSONDecodeError as error:
         raise BasketballProviderError("provider returned invalid JSON") from error
     if isinstance(payload, dict) and payload.get("message"):
         raise BasketballProviderError(str(payload["message"]))
-    return ProviderResponse(raw_bytes=raw, payload=payload)
+    return ProviderResponse(
+        raw_bytes=raw,
+        payload=payload,
+        headers=_headers(response.headers),
+    )
+
+
+def _headers(values: Message) -> dict[str, str]:
+    return {key.casefold(): value for key, value in values.items()}

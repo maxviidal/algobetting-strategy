@@ -8,7 +8,7 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Literal, cast
 
-type MarginMethod = Literal["proportional"]
+type MarginMethod = Literal["power"]
 type ConsensusMethod = Literal["median"]
 
 _ENVIRONMENT_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
@@ -26,10 +26,7 @@ class CollectionSettings:
     maximum_quote_age_seconds: int = 300
 
     def __post_init__(self) -> None:
-        if (
-            isinstance(self.minimum_bookmakers, bool)
-            or self.minimum_bookmakers < 2
-        ):
+        if isinstance(self.minimum_bookmakers, bool) or self.minimum_bookmakers < 2:
             raise ConfigurationError("minimum_bookmakers must be an integer >= 2")
         if (
             isinstance(self.maximum_quote_age_seconds, bool)
@@ -44,15 +41,13 @@ class CollectionSettings:
 class PricingSettings:
     """De-vigging and consensus strategy settings supported by v1."""
 
-    margin_method: MarginMethod = "proportional"
+    margin_method: MarginMethod = "power"
     consensus_method: ConsensusMethod = "median"
     leave_one_bookmaker_out: bool = True
 
     def __post_init__(self) -> None:
-        if self.margin_method != "proportional":
-            raise ConfigurationError(
-                "margin_method must be 'proportional' in pricing model v1"
-            )
+        if self.margin_method != "power":
+            raise ConfigurationError("margin_method must be 'power'")
         if self.consensus_method != "median":
             raise ConfigurationError(
                 "consensus_method must be 'median' in pricing model v1"
@@ -273,9 +268,7 @@ def load_env_file(path: Path, *, override: bool = False) -> bool:
         if line.startswith("export "):
             line = line.removeprefix("export ").lstrip()
         if "=" not in line:
-            raise ConfigurationError(
-                f"{path}:{line_number} must use NAME=VALUE syntax"
-            )
+            raise ConfigurationError(f"{path}:{line_number} must use NAME=VALUE syntax")
         name, raw_value = line.split("=", 1)
         name = name.strip()
         if _ENVIRONMENT_NAME.fullmatch(name) is None:

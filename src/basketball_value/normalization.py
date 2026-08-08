@@ -267,9 +267,7 @@ def _selected_market(
         for record in latest
     ):
         return None, "incomplete"
-    latest_observed = max(
-        record.observed_at for record in latest if record is not None
-    )
+    latest_observed = max(record.observed_at for record in latest if record is not None)
     if decision_at - latest_observed > maximum_age:
         return None, "stale"
     selected = select_market_at(

@@ -25,9 +25,7 @@ class Team:
         _non_empty(self.team_id, "team_id")
         _non_empty(self.abbreviation, "abbreviation")
         _non_empty(self.display_name, "display_name")
-        if len({source for source, _ in self.provider_ids}) != len(
-            self.provider_ids
-        ):
+        if len({source for source, _ in self.provider_ids}) != len(self.provider_ids):
             raise ValueError("provider_ids must contain one ID per source")
         for source, provider_id in self.provider_ids:
             _non_empty(source, "provider source")

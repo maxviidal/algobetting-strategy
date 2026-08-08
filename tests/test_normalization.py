@@ -31,9 +31,7 @@ def make_normalizer() -> OddsApiNormalizer:
                 Player(1001, "Jannik Sinner"),
                 Player(1002, "Carlos Alcaraz"),
             ),
-            aliases=(
-                PlayerAlias(THE_ODDS_API_PROVIDER, "J. Sinner", 1001),
-            ),
+            aliases=(PlayerAlias(THE_ODDS_API_PROVIDER, "J. Sinner", 1001),),
         ),
         tournaments=(Tournament("tournament-wimbledon", "ATP Wimbledon"),),
         bookmakers=(Bookmaker("bookmaker-pinnacle", "Pinnacle"),),
@@ -194,15 +192,13 @@ def test_realistic_french_open_response_extracts_only_h2h_snapshots() -> None:
         "betway-uk",
     ]
     assert {
-        price.player_id: price.decimal_odds
-        for price in event.snapshots[0].prices
+        price.player_id: price.decimal_odds for price in event.snapshots[0].prices
     } == {
         3001: Decimal("1.21"),
         3002: Decimal("4.6"),
     }
     assert {
-        price.player_id: price.decimal_odds
-        for price in event.snapshots[1].prices
+        price.player_id: price.decimal_odds for price in event.snapshots[1].prices
     } == {
         3001: Decimal("1.15"),
         3002: Decimal("5.25"),
@@ -299,6 +295,4 @@ def test_outcomes_must_match_event_participants() -> None:
 
 def test_naive_provider_timestamp_is_rejected() -> None:
     with pytest.raises(InvalidMarketError, match="timezone-aware"):
-        make_normalizer().normalize(
-            make_response(commence_time="2026-07-12T15:00:00")
-        )
+        make_normalizer().normalize(make_response(commence_time="2026-07-12T15:00:00"))
