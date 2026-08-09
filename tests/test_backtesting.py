@@ -134,6 +134,22 @@ def test_backtest_reports_profit_hit_rate_and_drawdown() -> None:
     ]
 
 
+def test_kelly_uses_explicit_conservative_staking_probability() -> None:
+    candidate = SelectedCandidate(
+        match_id="safe-probability",
+        player_id=1,
+        bookmaker_id="book-a",
+        snapshot_id="snapshot-safe",
+        offered_odds=Decimal("2"),
+        consensus_probability=Decimal("0.60"),
+        expected_value=Decimal("0"),
+        decision_at=DECISION_AT,
+        staking_probability=Decimal("0.50"),
+    )
+
+    assert kelly_fraction(candidate) == Decimal(0)
+
+
 def test_backtest_voids_non_completed_matches_and_tracks_missing_results() -> None:
     candidates = (
         SelectedCandidate(

@@ -167,7 +167,6 @@ def run_atp_wimbledon_backtest(
                 decision_at=decision_at,
                 calculated_at=decision_at,
                 settings=model_settings,
-                allow_stale_quotes=True,
             )
         except InsufficientBookmakersError:
             skipped_matches += 1
@@ -232,7 +231,6 @@ def export_atp_wimbledon_csv(
                 decision_at=decision_at,
                 calculated_at=decision_at,
                 settings=model_settings,
-                allow_stale_quotes=True,
             )
         except InsufficientBookmakersError:
             market_evaluations: tuple[OfferEvaluation, ...] = ()
@@ -513,7 +511,30 @@ def snapshots_at_sixty_minutes(
     fixture: WimbledonFixture,
     payloads: tuple[bytes, ...],
 ) -> tuple[OddsSnapshot, ...]:
-    decision_at = fixture.scheduled_start - timedelta(minutes=60)
+    return snapshots_at_decision(
+        fixture_id=fixture.fixture_id,
+        player_one_id=fixture.player_one_id,
+        player_two_id=fixture.player_two_id,
+        scheduled_start=fixture.scheduled_start,
+        payloads=payloads,
+        minutes_before_start=60,
+    )
+
+
+def snapshots_at_decision(
+    *,
+    fixture_id: str,
+    player_one_id: int,
+    player_two_id: int,
+    scheduled_start: datetime,
+    payloads: tuple[bytes, ...],
+    minutes_before_start: int,
+) -> tuple[OddsSnapshot, ...]:
+    """Reconstruct the latest active two-way price state at one decision time."""
+
+    if minutes_before_start < 0:
+        raise ValueError("minutes_before_start must be non-negative")
+    decision_at = scheduled_start - timedelta(minutes=minutes_before_start)
     snapshots: list[OddsSnapshot] = []
     for raw_bytes in payloads:
         payload = _json(raw_bytes)
@@ -535,21 +556,21 @@ def snapshots_at_sixty_minutes(
             snapshots.append(
                 OddsSnapshot(
                     snapshot_id=_snapshot_id(
-                        fixture.fixture_id,
+                        fixture_id,
                         bookmaker_id,
                         observed_at,
                         odds_one,
                         odds_two,
                     ),
-                    match_id=fixture.fixture_id,
+                    match_id=fixture_id,
                     bookmaker_id=bookmaker_id,
                     observed_at=observed_at,
                     prices=(
-                        MatchWinnerPrice(fixture.player_one_id, odds_one),
-                        MatchWinnerPrice(fixture.player_two_id, odds_two),
+                        MatchWinnerPrice(player_one_id, odds_one),
+                        MatchWinnerPrice(player_two_id, odds_two),
                     ),
                     source="oddspapi:v4:historical",
-                    source_event_id=fixture.fixture_id,
+                    source_event_id=fixture_id,
                 )
             )
     return tuple(sorted(snapshots, key=lambda item: item.bookmaker_id))

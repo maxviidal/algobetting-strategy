@@ -2,7 +2,7 @@
 
 from collections import defaultdict
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from decimal import Decimal
 from enum import StrEnum
 
@@ -34,7 +34,6 @@ class ExclusionReason(StrEnum):
     WRONG_MATCH = "wrong_match"
     PARTICIPANT_MISMATCH = "participant_mismatch"
     FUTURE_QUOTE = "future_quote"
-    STALE_QUOTE = "stale_quote"
     SUPERSEDED_QUOTE = "superseded_quote"
     DUPLICATE_QUOTE = "duplicate_quote"
 
@@ -126,12 +125,11 @@ def evaluate_market(
     decision_at: datetime,
     settings: AppSettings,
     calculated_at: datetime | None = None,
-    allow_stale_quotes: bool = False,
 ) -> MarketEvaluationResult:
     """Evaluate every eligible offer using point-in-time peer consensus.
 
-    ``allow_stale_quotes=True`` disables the stale-quote filter while retaining
-    the strict prohibition on quotes observed after ``decision_at``.
+    Quotes observed after ``decision_at`` remain strictly prohibited. Quote age
+    is intentionally diagnostic-only and never suppresses an older quote.
     """
 
     _require_utc(decision_at, "decision_at")
@@ -146,11 +144,6 @@ def evaluate_market(
         match,
         snapshots,
         decision_at=decision_at,
-        maximum_age=(
-            None
-            if allow_stale_quotes
-            else timedelta(seconds=settings.collection.maximum_quote_age_seconds)
-        ),
     )
     if len(selected) < settings.collection.minimum_bookmakers:
         raise InsufficientBookmakersError(
@@ -201,7 +194,6 @@ def _select_latest_eligible_snapshots(
     snapshots: tuple[OddsSnapshot, ...],
     *,
     decision_at: datetime,
-    maximum_age: timedelta | None,
 ) -> tuple[tuple[OddsSnapshot, ...], tuple[SnapshotExclusion, ...]]:
     eligible_by_bookmaker: defaultdict[str, list[OddsSnapshot]] = defaultdict(list)
     exclusions: list[SnapshotExclusion] = []
@@ -226,12 +218,6 @@ def _select_latest_eligible_snapshots(
         elif snapshot.observed_at > decision_at:
             reason = ExclusionReason.FUTURE_QUOTE
             detail = "snapshot was observed after decision_at"
-        elif (
-            maximum_age is not None and decision_at - snapshot.observed_at > maximum_age
-        ):
-            reason = ExclusionReason.STALE_QUOTE
-            detail = "snapshot exceeds maximum_quote_age_seconds"
-
         if reason is not None:
             exclusions.append(
                 SnapshotExclusion(

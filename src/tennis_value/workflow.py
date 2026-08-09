@@ -2,7 +2,7 @@
 
 import sqlite3
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 
 from tennis_value.config import AppSettings
 from tennis_value.data.domain import Bookmaker, Match, Player, Tournament
@@ -232,9 +232,6 @@ def evaluate_stored_response(
         snapshots = repository.latest_snapshots_as_of(
             match.match_id,
             decision_at=effective_decision_at,
-            maximum_age=timedelta(
-                seconds=settings.collection.maximum_quote_age_seconds
-            ),
         )
         try:
             result = evaluate_market(

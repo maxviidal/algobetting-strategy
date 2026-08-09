@@ -1,6 +1,5 @@
 [collection]
 minimum_bookmakers = 5
-maximum_quote_age_seconds = 300
 
 [pricing]
 margin_method = "power"
@@ -8,7 +7,7 @@ consensus_method = "pinnacle"
 leave_one_bookmaker_out = true
 
 [signals]
-minimum_expected_value = 0.03
+minimum_expected_value = 0.04
 
 [quality]
 review_expected_value = 0.20

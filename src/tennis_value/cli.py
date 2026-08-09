@@ -8,6 +8,7 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
 
+from tennis_value.calibration_reporting import export_tennis_calibration_report
 from tennis_value.config import (
     ConfigurationError,
     get_odds_api_key,
@@ -24,6 +25,11 @@ from tennis_value.oddspapi_backtest import (
     export_atp_wimbledon_csv,
     run_atp_wimbledon_backtest,
 )
+from tennis_value.oddspapi_research import (
+    fetch_tennis_history,
+    preflight_tennis_history,
+)
+from tennis_value.research_config import load_tennis_research_settings
 from tennis_value.workflow import (
     PendingPlayersError,
     WorkflowError,
@@ -36,6 +42,8 @@ from tennis_value.workflow import (
 )
 
 _DEFAULT_DATABASE = "data/tennis_value.sqlite3"
+_DEFAULT_TENNIS_RESEARCH_CONFIG = "configs/tennis_calibration_2026.toml"
+_DEFAULT_TENNIS_RESEARCH_CACHE = "data/oddspapi/tennis_1000_2026"
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -90,6 +98,12 @@ def main(argv: Sequence[str] | None = None) -> int:
                 cache_directory=Path(arguments.cache_directory),
                 output_directory=Path(arguments.output_directory),
             )
+        if arguments.command == "preflight-tennis-calibration":
+            return _preflight_tennis_calibration(arguments)
+        if arguments.command == "fetch-tennis-calibration-history":
+            return _fetch_tennis_calibration_history(arguments)
+        if arguments.command == "export-tennis-calibration-report":
+            return _export_tennis_calibration_report(arguments)
     except PendingPlayersError as error:
         print(f"error: {error}", file=sys.stderr)
         print(
@@ -246,7 +260,66 @@ def _build_parser() -> argparse.ArgumentParser:
         default="reports/wimbledon_atp_2026",
         help="directory for the generated CSV files",
     )
+    preflight = commands.add_parser(
+        "preflight-tennis-calibration",
+        help="check sanitized OddsPapi quota and exact missing billable calls",
+    )
+    _add_tennis_research_arguments(preflight)
+    fetch_history = commands.add_parser(
+        "fetch-tennis-calibration-history",
+        help="pace and resume the quota-gated 2026 ATP/WTA 1000 collection",
+    )
+    _add_tennis_research_arguments(fetch_history)
+    fetch_history.add_argument(
+        "--confirm-billable-requests",
+        required=True,
+        type=int,
+        help="must exactly equal the current preflight billable-call count",
+    )
+    calibration_export = commands.add_parser(
+        "export-tennis-calibration-report",
+        help="fit separate ATP/WTA calibrators and export cached diagnostics",
+    )
+    _add_tennis_research_arguments(calibration_export)
+    calibration_export.add_argument(
+        "--model-config",
+        default="configs/research.toml",
+        help="tennis pricing and consensus settings",
+    )
+    calibration_export.add_argument(
+        "--atp-results-csv",
+        required=True,
+        help="manual TennisData.App 2026 ATP result CSV",
+    )
+    calibration_export.add_argument(
+        "--wta-results-csv",
+        required=True,
+        help="manual TennisData.App 2026 WTA result CSV",
+    )
+    calibration_export.add_argument(
+        "--artifact-directory",
+        default="artifacts/calibration/tennis/2026_1000",
+        help="directory for ATP/WTA fitted model artifacts",
+    )
+    calibration_export.add_argument(
+        "--output-directory",
+        default="reports/tennis_calibration_2026",
+        help="directory for analysis CSV and JSON files",
+    )
     return parser
+
+
+def _add_tennis_research_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--research-config",
+        default=_DEFAULT_TENNIS_RESEARCH_CONFIG,
+        help="strict 2026 tennis calibration configuration",
+    )
+    parser.add_argument(
+        "--cache-directory",
+        default=_DEFAULT_TENNIS_RESEARCH_CACHE,
+        help="lossless compressed provider response cache",
+    )
 
 
 def _add_database_argument(parser: argparse.ArgumentParser) -> None:
@@ -508,6 +581,70 @@ def _export_atp_wimbledon_csv(
     print(f"Offer evaluations exported: {export.offer_rows}")
     print(f"Match summary CSV: {export.matches_path.resolve()}")
     print(f"Offer detail CSV: {export.offers_path.resolve()}")
+    return 0
+
+
+def _preflight_tennis_calibration(arguments: argparse.Namespace) -> int:
+    settings = load_tennis_research_settings(Path(arguments.research_config))
+    preflight = preflight_tennis_history(
+        _odds_papi_client(arguments),
+        settings=settings,
+        cache_directory=Path(arguments.cache_directory),
+    )
+    print(f"Status: {preflight.status}")
+    print(f"Request limit: {preflight.quota.request_limit}")
+    print(f"Requests used: {preflight.quota.request_count}")
+    print(f"Requests remaining: {preflight.quota.remaining}")
+    print(f"Quota reserve: {preflight.quota_reserve}")
+    print(f"Missing billable requests: {preflight.missing_billable_requests}")
+    print(f"Missing tournament catalog: {preflight.missing_catalog}")
+    print(f"Missing fixture requests: {preflight.missing_fixture_requests}")
+    print(f"Known cached fixtures: {preflight.known_fixtures}")
+    print(f"Missing free historical requests: {preflight.missing_historical_requests}")
+    print("Account response persisted: no")
+    if preflight.status == "READY_TO_DOWNLOAD":
+        print(f"Exact confirmation value: {preflight.missing_billable_requests}")
+        return 0
+    return 2
+
+
+def _fetch_tennis_calibration_history(arguments: argparse.Namespace) -> int:
+    settings = load_tennis_research_settings(Path(arguments.research_config))
+    collection = fetch_tennis_history(
+        _odds_papi_client(arguments),
+        settings=settings,
+        cache_directory=Path(arguments.cache_directory),
+        confirm_billable_requests=int(arguments.confirm_billable_requests),
+    )
+    print(f"Fixtures cached: {len(collection.fixtures)}")
+    print(f"Billable requests made: {collection.billable_requests_made}")
+    print(f"Free historical requests made: {collection.historical_requests_made}")
+    print(f"No-data 404 responses cached: {collection.no_data_responses}")
+    print(f"Raw cache: {collection.cache_directory.resolve()}")
+    print(f"Manifest: {collection.manifest_path.resolve()}")
+    return 0
+
+
+def _export_tennis_calibration_report(arguments: argparse.Namespace) -> int:
+    export = export_tennis_calibration_report(
+        research_settings=load_tennis_research_settings(
+            Path(arguments.research_config)
+        ),
+        model_settings=load_settings(Path(arguments.model_config)),
+        cache_directory=Path(arguments.cache_directory),
+        atp_results_csv=Path(arguments.atp_results_csv),
+        wta_results_csv=Path(arguments.wta_results_csv),
+        artifact_directory=Path(arguments.artifact_directory),
+        output_directory=Path(arguments.output_directory),
+    )
+    print(f"Conclusion: {export.conclusion}")
+    print(f"Fixtures: {export.fixture_count}")
+    print(f"Matched results: {export.matched_results}")
+    print(f"Offers exported: {export.offer_count}")
+    print(f"Candidates selected: {export.candidate_count}")
+    print(f"Analysis directory: {export.output_directory.resolve()}")
+    print(f"Artifact directory: {export.artifact_directory.resolve()}")
+    print(f"Summary: {export.summary_json_path.resolve()}")
     return 0
 
 

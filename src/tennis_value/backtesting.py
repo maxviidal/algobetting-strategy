@@ -100,6 +100,7 @@ class SelectedCandidate:
     consensus_probability: Decimal
     expected_value: Decimal
     decision_at: datetime
+    staking_probability: Decimal | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -188,6 +189,7 @@ def select_best_candidates(
             consensus_probability=evaluation.consensus_probability,
             expected_value=evaluation.expected_value,
             decision_at=evaluation.decision_at,
+            staking_probability=evaluation.consensus_probability,
         )
         key = (candidate.match_id, candidate.player_id)
         existing = best_by_selection.get(key)
@@ -235,7 +237,11 @@ def kelly_fraction(candidate: SelectedCandidate) -> Decimal:
     net_odds = candidate.offered_odds - Decimal(1)
     if not net_odds.is_finite() or net_odds <= 0:
         raise ValueError("offered_odds must be finite and greater than one")
-    probability = candidate.consensus_probability
+    probability = (
+        candidate.staking_probability
+        if candidate.staking_probability is not None
+        else candidate.consensus_probability
+    )
     if not probability.is_finite() or probability < 0 or probability > 1:
         raise ValueError("consensus_probability must be between zero and one")
     fraction = (candidate.offered_odds * probability - Decimal(1)) / net_odds

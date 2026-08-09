@@ -178,7 +178,6 @@ def test_as_of_rejects_conflicting_quotes_at_latest_timestamp(
         repository.latest_snapshots_as_of(
             MATCH.match_id,
             decision_at=DECISION_AT,
-            maximum_age=timedelta(minutes=5),
         )
 
 
@@ -205,13 +204,12 @@ def test_as_of_deduplicates_equivalent_latest_quotes_deterministically(
     selected = repository.latest_snapshots_as_of(
         MATCH.match_id,
         decision_at=DECISION_AT,
-        maximum_age=timedelta(minutes=5),
     )
 
     assert [snapshot.snapshot_id for snapshot in selected] == ["snapshot-a-a"]
 
 
-def test_as_of_returns_latest_fresh_snapshot_per_bookmaker(
+def test_as_of_returns_latest_pre_decision_snapshot_per_bookmaker(
     odds_repository: tuple[SqliteOddsRepository, sqlite3.Connection],
 ) -> None:
     repository, _ = odds_repository
@@ -249,7 +247,6 @@ def test_as_of_returns_latest_fresh_snapshot_per_bookmaker(
     selected = repository.latest_snapshots_as_of(
         MATCH.match_id,
         decision_at=DECISION_AT,
-        maximum_age=timedelta(minutes=15),
     )
 
     assert [snapshot.bookmaker_id for snapshot in selected] == [
@@ -264,7 +261,7 @@ def test_as_of_returns_latest_fresh_snapshot_per_bookmaker(
     assert all(snapshot.observed_at <= DECISION_AT for snapshot in selected)
 
 
-def test_as_of_includes_freshness_boundary_and_excludes_older_quotes(
+def test_as_of_accepts_old_pre_decision_quotes_without_freshness_cutoff(
     odds_repository: tuple[SqliteOddsRepository, sqlite3.Connection],
 ) -> None:
     repository, _ = odds_repository
@@ -285,10 +282,9 @@ def test_as_of_includes_freshness_boundary_and_excludes_older_quotes(
     selected = repository.latest_snapshots_as_of(
         MATCH.match_id,
         decision_at=DECISION_AT,
-        maximum_age=timedelta(minutes=5),
     )
 
-    assert [snapshot.bookmaker_id for snapshot in selected] == ["boundary"]
+    assert [snapshot.bookmaker_id for snapshot in selected] == ["boundary", "stale"]
 
 
 def test_persisted_as_of_market_feeds_point_in_time_signal_model(
@@ -317,14 +313,8 @@ def test_persisted_as_of_market_feeds_point_in_time_signal_model(
     stored_snapshots = repository.latest_snapshots_as_of(
         MATCH.match_id,
         decision_at=DECISION_AT,
-        maximum_age=timedelta(minutes=15),
     )
-    settings = AppSettings(
-        collection=CollectionSettings(
-            minimum_bookmakers=5,
-            maximum_quote_age_seconds=900,
-        )
-    )
+    settings = AppSettings(collection=CollectionSettings(minimum_bookmakers=5))
 
     result = evaluate_market(
         repository.get_match(MATCH.match_id),
@@ -410,5 +400,4 @@ def test_as_of_requires_utc_decision_time(
         repository.latest_snapshots_as_of(
             MATCH.match_id,
             decision_at=datetime.fromisoformat("2026-07-30T14:00:00+02:00"),
-            maximum_age=timedelta(minutes=15),
         )

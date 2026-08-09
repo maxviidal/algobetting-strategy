@@ -110,12 +110,7 @@ class FakeOddsPapiClient:
 
 def test_complete_atp_wimbledon_run_and_cache_resume(tmp_path: Path) -> None:
     client = FakeOddsPapiClient()
-    settings = AppSettings(
-        collection=CollectionSettings(
-            minimum_bookmakers=5,
-            maximum_quote_age_seconds=180,
-        )
-    )
+    settings = AppSettings(collection=CollectionSettings(minimum_bookmakers=5))
 
     run = run_atp_wimbledon_backtest(
         client,  # type: ignore[arg-type]
@@ -154,7 +149,7 @@ def test_complete_atp_wimbledon_run_and_cache_resume(tmp_path: Path) -> None:
 
 def test_export_writes_one_match_row_and_every_offer(tmp_path: Path) -> None:
     client = FakeOddsPapiClient()
-    settings = AppSettings(collection=CollectionSettings(maximum_quote_age_seconds=180))
+    settings = AppSettings(collection=CollectionSettings())
     run_atp_wimbledon_backtest(
         client,  # type: ignore[arg-type]
         model_settings=settings,
@@ -200,9 +195,7 @@ def test_void_settlement_does_not_change_equity(tmp_path: Path) -> None:
     client.fetch_settlement = void_settlement  # type: ignore[method-assign]
     run = run_atp_wimbledon_backtest(
         client,  # type: ignore[arg-type]
-        model_settings=AppSettings(
-            collection=CollectionSettings(maximum_quote_age_seconds=180)
-        ),
+        model_settings=AppSettings(collection=CollectionSettings()),
         cache_directory=tmp_path,
         sleep=lambda _: None,
     )

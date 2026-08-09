@@ -68,25 +68,22 @@ def test_load_env_file_rejects_shell_syntax(
 
 
 @pytest.mark.parametrize(
-    ("filename", "minimum_ev", "maximum_age"),
+    "filename",
     [
-        ("development.toml", "0.03", 300),
-        ("research.toml", "0.05", 180),
+        "development.toml",
+        "research.toml",
     ],
 )
 def test_project_configuration_loads_with_typed_values(
     filename: str,
-    minimum_ev: str,
-    maximum_age: int,
 ) -> None:
     settings = load_settings(Path("configs") / filename)
 
     assert settings.collection.minimum_bookmakers == 5
-    assert settings.collection.maximum_quote_age_seconds == maximum_age
     assert settings.pricing.margin_method == "power"
     assert settings.pricing.consensus_method == "pinnacle"
     assert settings.pricing.leave_one_bookmaker_out
-    assert settings.signals.minimum_expected_value == Decimal(minimum_ev)
+    assert settings.signals.minimum_expected_value == Decimal("0.04")
     assert settings.quality.review_expected_value == Decimal("0.20")
     assert settings.quality.minimum_normal_overround == Decimal("0.98")
     assert settings.quality.maximum_normal_overround == Decimal("1.15")
@@ -99,7 +96,6 @@ def test_configuration_rejects_unknown_keys(tmp_path: Path) -> None:
         """
 [collection]
 minimum_bookmakers = 5
-maximum_quote_age_seconds = 300
 unknown = true
 
 [pricing]
@@ -143,7 +139,6 @@ def test_configuration_rejects_unsupported_v1_pricing_options(
     config_text = f"""
 [collection]
 minimum_bookmakers = 5
-maximum_quote_age_seconds = 300
 
 [pricing]
 margin_method = {margin_method}

@@ -1,0 +1,132 @@
+[dataset]
+profile = "tennis_1000_2026"
+sport_id = 12
+entry_minutes_before_start = 60
+closing_minutes_before_start = 5
+bookmakers = [
+  "pinnacle", "bet365", "betano",
+  "bwin", "unibet", "betway",
+  "coral", "ladbrokes", "leovegas",
+  "williamhill", "paddypower", "betfred",
+  "888sport", "betsson", "skybet",
+]
+minimum_bookmakers = 5
+quota_reserve = 5
+historical_cooldown_seconds = 5.1
+fixture_cooldown_seconds = 2.1
+
+[calibration]
+training_fraction = 0.60
+validation_fraction = 0.20
+minimum_training_matches = 200
+bootstrap_samples = 200
+block_days = 7
+lower_quantile = 0.05
+regularization = 10.0
+random_seed = 20261000
+
+[signals]
+minimum_expected_value = 0.04
+
+[staking]
+kelly_fraction = 0.25
+starting_equity = 10000.0
+
+[[tournaments]]
+key = "atp_indian_wells"
+tour = "ATP"
+surface = "hard"
+category_slug = "atp"
+name_tokens = ["indian", "wells"]
+from = 2026-03-04T00:00:00Z
+to = 2026-03-16T00:00:00Z
+
+[[tournaments]]
+key = "atp_miami"
+tour = "ATP"
+surface = "hard"
+category_slug = "atp"
+name_tokens = ["miami"]
+from = 2026-03-18T00:00:00Z
+to = 2026-03-30T00:00:00Z
+
+[[tournaments]]
+key = "atp_monte_carlo"
+tour = "ATP"
+surface = "clay"
+category_slug = "atp"
+name_tokens = ["monte", "carlo"]
+from = 2026-04-05T00:00:00Z
+to = 2026-04-13T00:00:00Z
+
+[[tournaments]]
+key = "atp_madrid"
+tour = "ATP"
+surface = "clay"
+category_slug = "atp"
+name_tokens = ["madrid"]
+from = 2026-04-22T00:00:00Z
+to = 2026-05-04T00:00:00Z
+
+[[tournaments]]
+key = "atp_rome"
+tour = "ATP"
+surface = "clay"
+category_slug = "atp"
+name_tokens = ["rome"]
+from = 2026-05-06T00:00:00Z
+to = 2026-05-18T00:00:00Z
+
+[[tournaments]]
+key = "wta_doha"
+tour = "WTA"
+surface = "hard"
+category_slug = "wta"
+name_tokens = ["doha"]
+from = 2026-02-08T00:00:00Z
+to = 2026-02-15T00:00:00Z
+
+[[tournaments]]
+key = "wta_dubai"
+tour = "WTA"
+surface = "hard"
+category_slug = "wta"
+name_tokens = ["dubai"]
+from = 2026-02-15T00:00:00Z
+to = 2026-02-22T00:00:00Z
+
+[[tournaments]]
+key = "wta_indian_wells"
+tour = "WTA"
+surface = "hard"
+category_slug = "wta"
+name_tokens = ["indian", "wells"]
+from = 2026-03-04T00:00:00Z
+to = 2026-03-16T00:00:00Z
+
+[[tournaments]]
+key = "wta_miami"
+tour = "WTA"
+surface = "hard"
+category_slug = "wta"
+name_tokens = ["miami"]
+from = 2026-03-17T00:00:00Z
+to = 2026-03-30T00:00:00Z
+
+[[tournaments]]
+key = "wta_madrid"
+tour = "WTA"
+surface = "clay"
+category_slug = "wta"
+name_tokens = ["madrid"]
+from = 2026-04-21T00:00:00Z
+to = 2026-05-03T00:00:00Z
+
+[[tournaments]]
+key = "wta_rome"
+tour = "WTA"
+surface = "clay"
+category_slug = "wta"
+name_tokens = ["rome"]
+from = 2026-05-05T00:00:00Z
+to = 2026-05-18T00:00:00Z

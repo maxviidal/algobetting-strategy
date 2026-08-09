@@ -23,18 +23,10 @@ class CollectionSettings:
     """Point-in-time quote eligibility settings."""
 
     minimum_bookmakers: int = 5
-    maximum_quote_age_seconds: int = 300
 
     def __post_init__(self) -> None:
         if isinstance(self.minimum_bookmakers, bool) or self.minimum_bookmakers < 2:
             raise ConfigurationError("minimum_bookmakers must be an integer >= 2")
-        if (
-            isinstance(self.maximum_quote_age_seconds, bool)
-            or self.maximum_quote_age_seconds < 0
-        ):
-            raise ConfigurationError(
-                "maximum_quote_age_seconds must be a non-negative integer"
-            )
 
 
 @dataclass(frozen=True, slots=True)
@@ -62,7 +54,7 @@ class PricingSettings:
 class SignalSettings:
     """Expected-value thresholds for research signals."""
 
-    minimum_expected_value: Decimal = Decimal("0.05")
+    minimum_expected_value: Decimal = Decimal("0.04")
 
     def __post_init__(self) -> None:
         _require_probability_like(
@@ -128,7 +120,7 @@ def load_settings(path: Path) -> AppSettings:
 
     _reject_unknown_keys(
         collection,
-        {"minimum_bookmakers", "maximum_quote_age_seconds"},
+        {"minimum_bookmakers"},
         "collection",
     )
     _reject_unknown_keys(
@@ -154,11 +146,6 @@ def load_settings(path: Path) -> AppSettings:
                 minimum_bookmakers=_required_int(
                     collection,
                     "minimum_bookmakers",
-                    "collection",
-                ),
-                maximum_quote_age_seconds=_required_int(
-                    collection,
-                    "maximum_quote_age_seconds",
                     "collection",
                 ),
             ),

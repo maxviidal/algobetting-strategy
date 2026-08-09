@@ -90,7 +90,7 @@ def test_five_books_produce_two_evaluations_each_with_four_peers() -> None:
         assert evaluation.snapshot_id not in evaluation.peer_snapshot_ids
 
 
-def test_allow_stale_quotes_keeps_latest_pre_decision_markets() -> None:
+def test_old_quotes_are_accepted_without_a_freshness_override() -> None:
     stale_snapshots = tuple(
         make_snapshot(
             bookmaker,
@@ -105,7 +105,6 @@ def test_allow_stale_quotes_keeps_latest_pre_decision_markets() -> None:
         decision_at=DECISION_AT,
         calculated_at=CALCULATED_AT,
         settings=AppSettings(),
-        allow_stale_quotes=True,
     )
 
     assert result.eligible_bookmaker_count == 5
@@ -169,9 +168,9 @@ def test_latest_point_in_time_snapshot_is_selected_and_exclusions_are_visible() 
         exclusion.snapshot_id: exclusion.reason for exclusion in result.exclusions
     }
     assert reasons["snapshot-a-old"] is ExclusionReason.SUPERSEDED_QUOTE
-    assert reasons["snapshot-stale"] is ExclusionReason.STALE_QUOTE
+    assert "snapshot-stale" not in reasons
     assert reasons["snapshot-future"] is ExclusionReason.FUTURE_QUOTE
-    assert result.eligible_bookmaker_count == 5
+    assert result.eligible_bookmaker_count == 6
 
 
 def test_quote_at_freshness_boundary_is_eligible() -> None:

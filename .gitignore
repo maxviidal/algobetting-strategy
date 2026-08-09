@@ -19,10 +19,11 @@ venv/
 .vscode/
 
 # Generated research data (create this directory only when needed)
-data/
+/data/
 
 # Local databases and generated reports
 *.db
 *.sqlite
 *.sqlite3
-reports/
+/reports/
+/artifacts/
