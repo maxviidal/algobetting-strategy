@@ -22,3 +22,22 @@ def test_locked_tennis_calibration_profile_loads() -> None:
     assert len(settings.tournaments) == 11
     assert {value.tour for value in settings.tournaments} == {"ATP", "WTA"}
     assert {value.surface for value in settings.tournaments} == {"hard", "clay"}
+
+
+def test_main_tour_profile_includes_250_level_events_and_grass() -> None:
+    settings = load_tennis_research_settings(
+        Path("configs/tennis_main_tour_2026.toml")
+    )
+
+    assert settings.profile == "tennis_main_tour_2026"
+    assert len(settings.bookmakers) == 15
+    assert settings.bookmakers[0] == "pinnacle"
+    assert len(settings.tournaments) == 81
+    assert {value.tour for value in settings.tournaments} == {"ATP", "WTA"}
+    assert {value.surface for value in settings.tournaments} == {
+        "hard",
+        "clay",
+        "grass",
+    }
+    keys = {value.key for value in settings.tournaments}
+    assert {"atp_houston", "atp_kitzbuhel", "wta_bogota", "wta_iasi"} <= keys

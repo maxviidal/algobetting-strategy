@@ -149,6 +149,18 @@ WTA events:
 
 Canada is not included in this fixed completed-event dataset.
 
+An additional profile, `configs/tennis_main_tour_2026.toml`, expands the same
+T-60 methodology to 81 completed individual main-tour singles events through
+10 August 2026: 43 ATP and 38 WTA tournaments across hard, clay, and grass. It
+includes ATP/WTA 250 events alongside 500s, 1000s, and the three completed
+Grand Slams. Qualifying draws, team competitions, Challengers, and WTA 125
+events remain out of scope. The original 1000-level profile is unchanged.
+
+The extended profile deliberately retains the same 15 bookmakers in the same
+order. That keeps the Pinnacle reference and offer universe comparable and
+prevents positional historical-cache groups from being reinterpreted. A later
+bookmaker-replacement experiment should use a new cache and separate profile.
+
 The study uses:
 
 - a fixed T-60 entry decision;

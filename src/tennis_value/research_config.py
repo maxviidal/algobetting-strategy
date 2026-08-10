@@ -157,8 +157,10 @@ def _tournament(value: object, index: int) -> TournamentSpec:
 
 
 def _validate(settings: TennisResearchSettings) -> None:
-    if settings.profile != "tennis_1000_2026":
-        raise ConfigurationError("dataset.profile must be tennis_1000_2026")
+    if settings.profile not in {"tennis_1000_2026", "tennis_main_tour_2026"}:
+        raise ConfigurationError(
+            "dataset.profile must be tennis_1000_2026 or tennis_main_tour_2026"
+        )
     if settings.sport_id <= 0:
         raise ConfigurationError("sport_id must be positive")
     if settings.entry_minutes_before_start != 60:

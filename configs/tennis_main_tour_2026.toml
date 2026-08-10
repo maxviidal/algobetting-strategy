@@ -1,0 +1,768 @@
+[dataset]
+profile = "tennis_main_tour_2026"
+sport_id = 12
+entry_minutes_before_start = 60
+closing_minutes_before_start = 5
+# Keep this order stable: historical cache group indexes are positional.
+# Pinnacle remains the probability reference; the other books are offers.
+bookmakers = [
+  "pinnacle", "bet365", "betano",
+  "bwin", "unibet", "betway",
+  "coral", "ladbrokes", "leovegas",
+  "williamhill", "paddypower", "betfred",
+  "888sport", "betsson", "skybet",
+]
+minimum_bookmakers = 5
+quota_reserve = 5
+historical_cooldown_seconds = 5.1
+fixture_cooldown_seconds = 2.1
+
+[calibration]
+training_fraction = 0.60
+validation_fraction = 0.20
+minimum_training_matches = 200
+bootstrap_samples = 200
+block_days = 7
+lower_quantile = 0.05
+regularization = 10.0
+random_seed = 20261000
+
+[signals]
+minimum_expected_value = 0.04
+
+[staking]
+kelly_fraction = 0.25
+starting_equity = 10000.0
+
+# Completed 2026 ATP main-tour singles through 10 August.
+
+[[tournaments]]
+key = "atp_brisbane"
+tour = "ATP"
+surface = "hard"
+category_slug = "atp"
+name_tokens = ["brisbane"]
+from = 2026-01-03T00:00:00Z
+to = 2026-01-13T00:00:00Z
+
+[[tournaments]]
+key = "atp_hong_kong"
+tour = "ATP"
+surface = "hard"
+category_slug = "atp"
+name_tokens = ["hong", "kong"]
+from = 2026-01-04T00:00:00Z
+to = 2026-01-13T00:00:00Z
+
+[[tournaments]]
+key = "atp_auckland"
+tour = "ATP"
+surface = "hard"
+category_slug = "atp"
+name_tokens = ["auckland"]
+from = 2026-01-10T00:00:00Z
+to = 2026-01-19T00:00:00Z
+
+[[tournaments]]
+key = "atp_adelaide"
+tour = "ATP"
+surface = "hard"
+category_slug = "atp"
+name_tokens = ["adelaide"]
+from = 2026-01-11T00:00:00Z
+to = 2026-01-19T00:00:00Z
+
+[[tournaments]]
+key = "atp_australian_open"
+tour = "ATP"
+surface = "hard"
+category_slug = "atp"
+name_tokens = ["australian", "open"]
+from = 2026-01-17T00:00:00Z
+to = 2026-02-03T00:00:00Z
+
+[[tournaments]]
+key = "atp_montpellier"
+tour = "ATP"
+surface = "hard"
+category_slug = "atp"
+name_tokens = ["montpellier"]
+from = 2026-02-01T00:00:00Z
+to = 2026-02-10T00:00:00Z
+
+[[tournaments]]
+key = "atp_rotterdam"
+tour = "ATP"
+surface = "hard"
+category_slug = "atp"
+name_tokens = ["rotterdam"]
+from = 2026-02-08T00:00:00Z
+to = 2026-02-17T00:00:00Z
+
+[[tournaments]]
+key = "atp_buenos_aires"
+tour = "ATP"
+surface = "clay"
+category_slug = "atp"
+name_tokens = ["buenos", "aires"]
+from = 2026-02-08T00:00:00Z
+to = 2026-02-17T00:00:00Z
+
+[[tournaments]]
+key = "atp_dallas"
+tour = "ATP"
+surface = "hard"
+category_slug = "atp"
+name_tokens = ["dallas"]
+from = 2026-02-08T00:00:00Z
+to = 2026-02-17T00:00:00Z
+
+[[tournaments]]
+key = "atp_doha"
+tour = "ATP"
+surface = "hard"
+category_slug = "atp"
+name_tokens = ["doha"]
+from = 2026-02-15T00:00:00Z
+to = 2026-02-23T00:00:00Z
+
+[[tournaments]]
+key = "atp_delray_beach"
+tour = "ATP"
+surface = "hard"
+category_slug = "atp"
+name_tokens = ["delray", "beach"]
+from = 2026-02-15T00:00:00Z
+to = 2026-02-24T00:00:00Z
+
+[[tournaments]]
+key = "atp_rio_de_janeiro"
+tour = "ATP"
+surface = "clay"
+category_slug = "atp"
+name_tokens = ["rio", "janeiro"]
+from = 2026-02-15T00:00:00Z
+to = 2026-02-24T00:00:00Z
+
+[[tournaments]]
+key = "atp_dubai"
+tour = "ATP"
+surface = "hard"
+category_slug = "atp"
+name_tokens = ["dubai"]
+from = 2026-02-22T00:00:00Z
+to = 2026-03-02T00:00:00Z
+
+[[tournaments]]
+key = "atp_santiago"
+tour = "ATP"
+surface = "clay"
+category_slug = "atp"
+name_tokens = ["santiago"]
+from = 2026-02-22T00:00:00Z
+to = 2026-03-03T00:00:00Z
+
+[[tournaments]]
+key = "atp_acapulco"
+tour = "ATP"
+surface = "hard"
+category_slug = "atp"
+name_tokens = ["acapulco"]
+from = 2026-02-23T00:00:00Z
+to = 2026-03-03T00:00:00Z
+
+[[tournaments]]
+key = "atp_indian_wells"
+tour = "ATP"
+surface = "hard"
+category_slug = "atp"
+name_tokens = ["indian", "wells"]
+from = 2026-03-03T00:00:00Z
+to = 2026-03-17T00:00:00Z
+
+[[tournaments]]
+key = "atp_miami"
+tour = "ATP"
+surface = "hard"
+category_slug = "atp"
+name_tokens = ["miami"]
+from = 2026-03-18T00:00:00Z
+to = 2026-03-31T00:00:00Z
+
+[[tournaments]]
+key = "atp_marrakech"
+tour = "ATP"
+surface = "clay"
+category_slug = "atp"
+name_tokens = ["marrakech"]
+from = 2026-03-29T00:00:00Z
+to = 2026-04-07T00:00:00Z
+
+[[tournaments]]
+key = "atp_houston"
+tour = "ATP"
+surface = "clay"
+category_slug = "atp"
+name_tokens = ["houston"]
+from = 2026-03-29T00:00:00Z
+to = 2026-04-07T00:00:00Z
+
+[[tournaments]]
+key = "atp_bucharest"
+tour = "ATP"
+surface = "clay"
+category_slug = "atp"
+name_tokens = ["bucharest"]
+from = 2026-03-30T00:00:00Z
+to = 2026-04-07T00:00:00Z
+
+[[tournaments]]
+key = "atp_monte_carlo"
+tour = "ATP"
+surface = "clay"
+category_slug = "atp"
+name_tokens = ["monte", "carlo"]
+from = 2026-04-04T00:00:00Z
+to = 2026-04-14T00:00:00Z
+
+[[tournaments]]
+key = "atp_munich"
+tour = "ATP"
+surface = "clay"
+category_slug = "atp"
+name_tokens = ["munich"]
+from = 2026-04-12T00:00:00Z
+to = 2026-04-21T00:00:00Z
+
+[[tournaments]]
+key = "atp_barcelona"
+tour = "ATP"
+surface = "clay"
+category_slug = "atp"
+name_tokens = ["barcelona"]
+from = 2026-04-12T00:00:00Z
+to = 2026-04-21T00:00:00Z
+
+[[tournaments]]
+key = "atp_madrid"
+tour = "ATP"
+surface = "clay"
+category_slug = "atp"
+name_tokens = ["madrid"]
+from = 2026-04-21T00:00:00Z
+to = 2026-05-05T00:00:00Z
+
+[[tournaments]]
+key = "atp_rome"
+tour = "ATP"
+surface = "clay"
+category_slug = "atp"
+name_tokens = ["rome"]
+from = 2026-05-05T00:00:00Z
+to = 2026-05-19T00:00:00Z
+
+[[tournaments]]
+key = "atp_geneva"
+tour = "ATP"
+surface = "clay"
+category_slug = "atp"
+name_tokens = ["geneva"]
+from = 2026-05-16T00:00:00Z
+to = 2026-05-25T00:00:00Z
+
+[[tournaments]]
+key = "atp_hamburg"
+tour = "ATP"
+surface = "clay"
+category_slug = "atp"
+name_tokens = ["hamburg"]
+from = 2026-05-16T00:00:00Z
+to = 2026-05-25T00:00:00Z
+
+[[tournaments]]
+key = "atp_french_open"
+tour = "ATP"
+surface = "clay"
+category_slug = "atp"
+name_tokens = ["french", "open"]
+from = 2026-05-23T00:00:00Z
+to = 2026-06-09T00:00:00Z
+
+[[tournaments]]
+key = "atp_stuttgart"
+tour = "ATP"
+surface = "grass"
+category_slug = "atp"
+name_tokens = ["stuttgart"]
+from = 2026-06-07T00:00:00Z
+to = 2026-06-16T00:00:00Z
+
+[[tournaments]]
+key = "atp_hertogenbosch"
+tour = "ATP"
+surface = "grass"
+category_slug = "atp"
+name_tokens = ["hertogenbosch"]
+from = 2026-06-07T00:00:00Z
+to = 2026-06-16T00:00:00Z
+
+[[tournaments]]
+key = "atp_halle"
+tour = "ATP"
+surface = "grass"
+category_slug = "atp"
+name_tokens = ["halle"]
+from = 2026-06-14T00:00:00Z
+to = 2026-06-23T00:00:00Z
+
+[[tournaments]]
+key = "atp_london"
+tour = "ATP"
+surface = "grass"
+category_slug = "atp"
+name_tokens = ["london"]
+from = 2026-06-14T00:00:00Z
+to = 2026-06-23T00:00:00Z
+
+[[tournaments]]
+key = "atp_mallorca"
+tour = "ATP"
+surface = "grass"
+category_slug = "atp"
+name_tokens = ["mallorca"]
+from = 2026-06-20T00:00:00Z
+to = 2026-06-29T00:00:00Z
+
+[[tournaments]]
+key = "atp_eastbourne"
+tour = "ATP"
+surface = "grass"
+category_slug = "atp"
+name_tokens = ["eastbourne"]
+from = 2026-06-21T00:00:00Z
+to = 2026-06-30T00:00:00Z
+
+[[tournaments]]
+key = "atp_wimbledon"
+tour = "ATP"
+surface = "grass"
+category_slug = "atp"
+name_tokens = ["wimbledon"]
+from = 2026-06-28T00:00:00Z
+to = 2026-07-14T00:00:00Z
+
+[[tournaments]]
+key = "atp_gstaad"
+tour = "ATP"
+surface = "clay"
+category_slug = "atp"
+name_tokens = ["gstaad"]
+from = 2026-07-12T00:00:00Z
+to = 2026-07-21T00:00:00Z
+
+[[tournaments]]
+key = "atp_bastad"
+tour = "ATP"
+surface = "clay"
+category_slug = "atp"
+name_tokens = ["bastad"]
+from = 2026-07-12T00:00:00Z
+to = 2026-07-21T00:00:00Z
+
+[[tournaments]]
+key = "atp_umag"
+tour = "ATP"
+surface = "clay"
+category_slug = "atp"
+name_tokens = ["umag"]
+from = 2026-07-12T00:00:00Z
+to = 2026-07-20T00:00:00Z
+
+[[tournaments]]
+key = "atp_kitzbuhel"
+tour = "ATP"
+surface = "clay"
+category_slug = "atp"
+name_tokens = ["kitzbuhel"]
+from = 2026-07-19T00:00:00Z
+to = 2026-07-27T00:00:00Z
+
+[[tournaments]]
+key = "atp_estoril"
+tour = "ATP"
+surface = "clay"
+category_slug = "atp"
+name_tokens = ["estoril"]
+from = 2026-07-19T00:00:00Z
+to = 2026-07-28T00:00:00Z
+
+[[tournaments]]
+key = "atp_washington"
+tour = "ATP"
+surface = "hard"
+category_slug = "atp"
+name_tokens = ["washington"]
+from = 2026-07-26T00:00:00Z
+to = 2026-08-05T00:00:00Z
+
+[[tournaments]]
+key = "atp_los_cabos"
+tour = "ATP"
+surface = "hard"
+category_slug = "atp"
+name_tokens = ["los", "cabos"]
+from = 2026-07-27T00:00:00Z
+to = 2026-08-04T00:00:00Z
+
+[[tournaments]]
+key = "atp_montreal"
+tour = "ATP"
+surface = "hard"
+category_slug = "atp"
+name_tokens = ["montreal"]
+from = 2026-08-01T00:00:00Z
+to = 2026-08-11T23:59:59Z
+
+# Completed 2026 WTA main-tour singles through 10 August.
+
+[[tournaments]]
+key = "wta_brisbane"
+tour = "WTA"
+surface = "hard"
+category_slug = "wta"
+name_tokens = ["brisbane"]
+from = 2026-01-01T00:00:00Z
+to = 2026-01-13T00:00:00Z
+
+[[tournaments]]
+key = "wta_auckland"
+tour = "WTA"
+surface = "hard"
+category_slug = "wta"
+name_tokens = ["auckland"]
+from = 2026-01-03T00:00:00Z
+to = 2026-01-13T00:00:00Z
+
+[[tournaments]]
+key = "wta_hobart"
+tour = "WTA"
+surface = "hard"
+category_slug = "wta"
+name_tokens = ["hobart"]
+from = 2026-01-11T00:00:00Z
+to = 2026-01-19T00:00:00Z
+
+[[tournaments]]
+key = "wta_adelaide"
+tour = "WTA"
+surface = "hard"
+category_slug = "wta"
+name_tokens = ["adelaide"]
+from = 2026-01-11T00:00:00Z
+to = 2026-01-19T00:00:00Z
+
+[[tournaments]]
+key = "wta_australian_open"
+tour = "WTA"
+surface = "hard"
+category_slug = "wta"
+name_tokens = ["australian", "open"]
+from = 2026-01-17T00:00:00Z
+to = 2026-02-02T00:00:00Z
+
+[[tournaments]]
+key = "wta_abu_dhabi"
+tour = "WTA"
+surface = "hard"
+category_slug = "wta"
+name_tokens = ["abu", "dhabi"]
+from = 2026-01-31T00:00:00Z
+to = 2026-02-09T00:00:00Z
+
+[[tournaments]]
+key = "wta_ostrava"
+tour = "WTA"
+surface = "hard"
+category_slug = "wta"
+name_tokens = ["ostrava"]
+from = 2026-01-31T00:00:00Z
+to = 2026-02-09T00:00:00Z
+
+[[tournaments]]
+key = "wta_cluj_napoca"
+tour = "WTA"
+surface = "hard"
+category_slug = "wta"
+name_tokens = ["cluj", "napoca"]
+from = 2026-01-31T00:00:00Z
+to = 2026-02-09T00:00:00Z
+
+[[tournaments]]
+key = "wta_doha"
+tour = "WTA"
+surface = "hard"
+category_slug = "wta"
+name_tokens = ["doha"]
+from = 2026-02-07T00:00:00Z
+to = 2026-02-16T00:00:00Z
+
+[[tournaments]]
+key = "wta_dubai"
+tour = "WTA"
+surface = "hard"
+category_slug = "wta"
+name_tokens = ["dubai"]
+from = 2026-02-14T00:00:00Z
+to = 2026-02-23T00:00:00Z
+
+[[tournaments]]
+key = "wta_austin"
+tour = "WTA"
+surface = "hard"
+category_slug = "wta"
+name_tokens = ["austin"]
+from = 2026-02-22T00:00:00Z
+to = 2026-03-03T00:00:00Z
+
+[[tournaments]]
+key = "wta_merida"
+tour = "WTA"
+surface = "hard"
+category_slug = "wta"
+name_tokens = ["merida"]
+from = 2026-02-22T00:00:00Z
+to = 2026-03-03T00:00:00Z
+
+[[tournaments]]
+key = "wta_indian_wells"
+tour = "WTA"
+surface = "hard"
+category_slug = "wta"
+name_tokens = ["indian", "wells"]
+from = 2026-03-03T00:00:00Z
+to = 2026-03-17T00:00:00Z
+
+[[tournaments]]
+key = "wta_miami"
+tour = "WTA"
+surface = "hard"
+category_slug = "wta"
+name_tokens = ["miami"]
+from = 2026-03-16T00:00:00Z
+to = 2026-03-30T00:00:00Z
+
+[[tournaments]]
+key = "wta_charleston"
+tour = "WTA"
+surface = "clay"
+category_slug = "wta"
+name_tokens = ["charleston"]
+from = 2026-03-29T00:00:00Z
+to = 2026-04-07T00:00:00Z
+
+[[tournaments]]
+key = "wta_bogota"
+tour = "WTA"
+surface = "clay"
+category_slug = "wta"
+name_tokens = ["bogota"]
+from = 2026-03-29T00:00:00Z
+to = 2026-04-07T00:00:00Z
+
+[[tournaments]]
+key = "wta_linz"
+tour = "WTA"
+surface = "clay"
+category_slug = "wta"
+name_tokens = ["linz"]
+from = 2026-04-05T00:00:00Z
+to = 2026-04-14T00:00:00Z
+
+[[tournaments]]
+key = "wta_rouen"
+tour = "WTA"
+surface = "clay"
+category_slug = "wta"
+name_tokens = ["rouen"]
+from = 2026-04-12T00:00:00Z
+to = 2026-04-21T00:00:00Z
+
+[[tournaments]]
+key = "wta_stuttgart"
+tour = "WTA"
+surface = "clay"
+category_slug = "wta"
+name_tokens = ["stuttgart"]
+from = 2026-04-12T00:00:00Z
+to = 2026-04-21T00:00:00Z
+
+[[tournaments]]
+key = "wta_madrid"
+tour = "WTA"
+surface = "clay"
+category_slug = "wta"
+name_tokens = ["madrid"]
+from = 2026-04-20T00:00:00Z
+to = 2026-05-04T00:00:00Z
+
+[[tournaments]]
+key = "wta_rome"
+tour = "WTA"
+surface = "clay"
+category_slug = "wta"
+name_tokens = ["rome"]
+from = 2026-05-04T00:00:00Z
+to = 2026-05-18T00:00:00Z
+
+[[tournaments]]
+key = "wta_strasbourg"
+tour = "WTA"
+surface = "clay"
+category_slug = "wta"
+name_tokens = ["strasbourg"]
+from = 2026-05-16T00:00:00Z
+to = 2026-05-25T00:00:00Z
+
+[[tournaments]]
+key = "wta_rabat"
+tour = "WTA"
+surface = "clay"
+category_slug = "wta"
+name_tokens = ["rabat"]
+from = 2026-05-17T00:00:00Z
+to = 2026-05-25T00:00:00Z
+
+[[tournaments]]
+key = "wta_french_open"
+tour = "WTA"
+surface = "clay"
+category_slug = "wta"
+name_tokens = ["french", "open"]
+from = 2026-05-23T00:00:00Z
+to = 2026-06-08T00:00:00Z
+
+[[tournaments]]
+key = "wta_hertogenbosch"
+tour = "WTA"
+surface = "grass"
+category_slug = "wta"
+name_tokens = ["hertogenbosch"]
+from = 2026-06-07T00:00:00Z
+to = 2026-06-16T00:00:00Z
+
+[[tournaments]]
+key = "wta_london"
+tour = "WTA"
+surface = "grass"
+category_slug = "wta"
+name_tokens = ["london"]
+from = 2026-06-07T00:00:00Z
+to = 2026-06-16T00:00:00Z
+
+[[tournaments]]
+key = "wta_nottingham"
+tour = "WTA"
+surface = "grass"
+category_slug = "wta"
+name_tokens = ["nottingham"]
+from = 2026-06-14T00:00:00Z
+to = 2026-06-23T00:00:00Z
+
+[[tournaments]]
+key = "wta_berlin"
+tour = "WTA"
+surface = "grass"
+category_slug = "wta"
+name_tokens = ["berlin"]
+from = 2026-06-14T00:00:00Z
+to = 2026-06-23T00:00:00Z
+
+[[tournaments]]
+key = "wta_bad_homburg"
+tour = "WTA"
+surface = "grass"
+category_slug = "wta"
+name_tokens = ["bad", "homburg"]
+from = 2026-06-20T00:00:00Z
+to = 2026-06-29T00:00:00Z
+
+[[tournaments]]
+key = "wta_eastbourne"
+tour = "WTA"
+surface = "grass"
+category_slug = "wta"
+name_tokens = ["eastbourne"]
+from = 2026-06-21T00:00:00Z
+to = 2026-06-29T00:00:00Z
+
+[[tournaments]]
+key = "wta_wimbledon"
+tour = "WTA"
+surface = "grass"
+category_slug = "wta"
+name_tokens = ["wimbledon"]
+from = 2026-06-28T00:00:00Z
+to = 2026-07-13T00:00:00Z
+
+[[tournaments]]
+key = "wta_iasi"
+tour = "WTA"
+surface = "clay"
+category_slug = "wta"
+name_tokens = ["iasi"]
+from = 2026-07-12T00:00:00Z
+to = 2026-07-22T00:00:00Z
+
+[[tournaments]]
+key = "wta_athens"
+tour = "WTA"
+surface = "hard"
+category_slug = "wta"
+name_tokens = ["athens"]
+from = 2026-07-12T00:00:00Z
+to = 2026-07-21T00:00:00Z
+
+[[tournaments]]
+key = "wta_prague"
+tour = "WTA"
+surface = "hard"
+category_slug = "wta"
+name_tokens = ["prague"]
+from = 2026-07-19T00:00:00Z
+to = 2026-07-28T00:00:00Z
+
+[[tournaments]]
+key = "wta_hamburg"
+tour = "WTA"
+surface = "clay"
+category_slug = "wta"
+name_tokens = ["hamburg"]
+from = 2026-07-19T00:00:00Z
+to = 2026-07-28T00:00:00Z
+
+[[tournaments]]
+key = "wta_washington"
+tour = "WTA"
+surface = "hard"
+category_slug = "wta"
+name_tokens = ["washington"]
+from = 2026-07-26T00:00:00Z
+to = 2026-08-05T00:00:00Z
+
+[[tournaments]]
+key = "wta_memphis"
+tour = "WTA"
+surface = "hard"
+category_slug = "wta"
+name_tokens = ["memphis"]
+from = 2026-07-26T00:00:00Z
+to = 2026-08-04T00:00:00Z
+
+[[tournaments]]
+key = "wta_toronto"
+tour = "WTA"
+surface = "hard"
+category_slug = "wta"
+name_tokens = ["toronto"]
+from = 2026-08-01T00:00:00Z
+to = 2026-08-11T23:59:59Z
