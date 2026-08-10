@@ -333,6 +333,10 @@ tournament, date window, and unordered normalized player pair. Missing,
 ambiguous, incomplete, retired, cancelled, or walkover outcomes are quarantined
 instead of guessed.
 
+For TennisData.App season exports, the importer reads `date_timestamp` as Unix
+seconds in UTC. It also accepts the `date_human` format such as `02 Jan 2026`,
+along with the existing generic date-column formats.
+
 ### Step 4: fit models and export the real report
 
 This step is offline and makes no API requests:

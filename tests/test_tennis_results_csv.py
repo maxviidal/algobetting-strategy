@@ -41,6 +41,35 @@ def test_result_matching_is_unordered_and_maps_winner_code(tmp_path: Path) -> No
     assert len(matching.source_checksums["ATP"]) == 64
 
 
+def test_tennisdata_timestamp_date_column_is_supported(tmp_path: Path) -> None:
+    atp = tmp_path / "atp.csv"
+    wta = tmp_path / "wta.csv"
+    atp.write_text(
+        "date_timestamp,date_human,tournament,home_name,away_name,winner_code,status\n"
+        "1767320100,02 Jan 2026,United Cup ATP,Munar J.,Baez S.,2,FINISHED\n",
+        encoding="utf-8",
+    )
+    _write(wta, "")
+    fixture = ResearchFixture(
+        fixture_id="fixture-tennisdata",
+        tournament_key="atp_united_cup",
+        tour="ATP",
+        surface="hard",
+        tournament_id=1,
+        tournament_name="United Cup ATP",
+        player_one_id=11,
+        player_two_id=22,
+        player_one_name="Munar J.",
+        player_two_name="Baez S.",
+        scheduled_start=datetime(2026, 1, 2, 12, tzinfo=UTC),
+    )
+
+    matching = match_result_csvs((fixture,), atp_path=atp, wta_path=wta)
+
+    assert matching.results["fixture-tennisdata"].winner_player_id == 22
+    assert matching.quarantines == ()
+
+
 def test_ambiguous_and_retired_results_are_quarantined(tmp_path: Path) -> None:
     atp = tmp_path / "atp.csv"
     wta = tmp_path / "wta.csv"

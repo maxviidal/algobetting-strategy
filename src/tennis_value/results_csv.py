@@ -5,7 +5,7 @@ import re
 import unicodedata
 from collections.abc import Sequence
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from hashlib import sha256
 from pathlib import Path
 
@@ -204,7 +204,15 @@ def _resolve_columns(fieldnames: Sequence[str]) -> dict[str, str | None]:
         "home": ("home_name", "home_player_name", "home_player", "player_1", "player1"),
         "away": ("away_name", "away_player_name", "away_player", "player_2", "player2"),
         "winner_code": ("winner_code", "winner", "winner_side"),
-        "date": ("date", "match_date", "start_date", "start_time", "event_date"),
+        "date": (
+            "date_timestamp",
+            "date_human",
+            "date",
+            "match_date",
+            "start_date",
+            "start_time",
+            "event_date",
+        ),
         "tournament": ("tournament_name", "tournament", "event_name"),
     }
     result: dict[str, str | None] = {}
@@ -242,9 +250,14 @@ def _parse_date(value: str) -> date:
     try:
         return datetime.fromisoformat(cleaned).date()
     except ValueError:
-        for pattern in ("%d/%m/%Y", "%m/%d/%Y", "%Y%m%d"):
+        for pattern in ("%d %b %Y", "%d/%m/%Y", "%m/%d/%Y", "%Y%m%d"):
             try:
                 return datetime.strptime(cleaned, pattern).date()
             except ValueError:
                 continue
+    if re.fullmatch(r"[+-]?\d+(?:\.\d+)?", cleaned):
+        try:
+            return datetime.fromtimestamp(float(cleaned), tz=UTC).date()
+        except (OSError, OverflowError, ValueError):
+            pass
     raise ValueError("unsupported match date")
