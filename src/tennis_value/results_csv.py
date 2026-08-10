@@ -49,6 +49,27 @@ class ResultQuarantine:
     fixture_id: str
     tour: str
     reason: str
+    detail: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class IdentityReview:
+    source: str
+    record_id: str
+    tour: str
+    canonical_name: str
+    original_name: str
+    opponent_name: str
+    match_date: date
+    tournament_name: str
+    result_status: str
+
+
+@dataclass(frozen=True, slots=True)
+class _NameParts:
+    surname: str
+    given: str
+    abbreviated: bool
 
 
 @dataclass(frozen=True, slots=True)
@@ -56,6 +77,7 @@ class ResultMatching:
     results: dict[str, MatchedResult]
     quarantines: tuple[ResultQuarantine, ...]
     source_checksums: dict[str, str]
+    identity_reviews: tuple[IdentityReview, ...]
 
 
 def match_result_csvs(
@@ -73,28 +95,30 @@ def match_result_csvs(
     parsed = {tour: _read_results(path, tour=tour) for tour, path in paths.items()}
     rows = {tour: value[0] for tour, value in parsed.items()}
     unavailable_rows = {tour: value[1] for tour, value in parsed.items()}
-    indexed: dict[tuple[str, frozenset[str]], list[ExternalResult]] = {}
+    indexed: dict[tuple[str, frozenset[tuple[str, str]]], list[ExternalResult]] = {}
     for tour, values in rows.items():
         for value in values:
             key = (
                 tour,
                 frozenset(
                     (
-                        _normalize_name(value.player_one_name),
-                        _normalize_name(value.player_two_name),
+                        _abbreviated_name_key(value.player_one_name),
+                        _abbreviated_name_key(value.player_two_name),
                     )
                 ),
             )
             indexed.setdefault(key, []).append(value)
-    unavailable_index: dict[tuple[str, frozenset[str]], list[ExternalResult]] = {}
+    unavailable_index: dict[
+        tuple[str, frozenset[tuple[str, str]]], list[ExternalResult]
+    ] = {}
     for tour, values in unavailable_rows.items():
         for value in values:
             key = (
                 tour,
                 frozenset(
                     (
-                        _normalize_name(value.player_one_name),
-                        _normalize_name(value.player_two_name),
+                        _abbreviated_name_key(value.player_one_name),
+                        _abbreviated_name_key(value.player_two_name),
                     )
                 ),
             )
@@ -102,20 +126,30 @@ def match_result_csvs(
     matched: dict[str, MatchedResult] = {}
     quarantines: list[ResultQuarantine] = []
     for fixture in fixtures:
+        player_one_key = _abbreviated_name_key(fixture.player_one_name)
+        player_two_key = _abbreviated_name_key(fixture.player_two_name)
+        if player_one_key == player_two_key and _two_letter_name_key(
+            fixture.player_one_name
+        ) == _two_letter_name_key(fixture.player_two_name):
+            quarantines.append(
+                ResultQuarantine(
+                    fixture.fixture_id,
+                    fixture.tour,
+                    "ambiguous_fixture_identity",
+                    _fixture_detail(fixture),
+                )
+            )
+            continue
         key = (
             fixture.tour,
-            frozenset(
-                (
-                    _normalize_name(fixture.player_one_name),
-                    _normalize_name(fixture.player_two_name),
-                )
-            ),
+            frozenset((player_one_key, player_two_key)),
         )
         candidates = [
             value
             for value in indexed.get(key, [])
             if abs((value.match_date - fixture.scheduled_start.date()).days) <= 1
             and _tournament_matches(fixture.tournament_key, value.tournament_name)
+            and _matchup_names_match(fixture, value)
         ]
         if len(candidates) != 1:
             unavailable = [
@@ -123,6 +157,7 @@ def match_result_csvs(
                 for value in unavailable_index.get(key, [])
                 if abs((value.match_date - fixture.scheduled_start.date()).days) <= 1
                 and _tournament_matches(fixture.tournament_key, value.tournament_name)
+                and _matchup_names_match(fixture, value)
             ]
             if candidates:
                 reason = "ambiguous_result_match"
@@ -131,7 +166,12 @@ def match_result_csvs(
             else:
                 reason = "result_not_found"
             quarantines.append(
-                ResultQuarantine(fixture.fixture_id, fixture.tour, reason)
+                ResultQuarantine(
+                    fixture.fixture_id,
+                    fixture.tour,
+                    reason,
+                    _candidate_detail(fixture, candidates or unavailable),
+                )
             )
             continue
         result = candidates[0]
@@ -140,18 +180,30 @@ def match_result_csvs(
             if result.winner_code == 1
             else result.player_two_name
         )
-        winner_id = (
-            fixture.player_one_id
-            if _normalize_name(winner_name) == _normalize_name(fixture.player_one_name)
-            else fixture.player_two_id
-        )
+        winner_matches_one = _names_match(fixture.player_one_name, winner_name)
+        winner_matches_two = _names_match(fixture.player_two_name, winner_name)
+        if winner_matches_one and not winner_matches_two:
+            winner_id = fixture.player_one_id
+        elif winner_matches_two and not winner_matches_one:
+            winner_id = fixture.player_two_id
+        else:
+            quarantines.append(
+                ResultQuarantine(
+                    fixture.fixture_id,
+                    fixture.tour,
+                    "winner_identity_mismatch",
+                    _candidate_detail(fixture, candidates),
+                )
+            )
+            continue
         matched[fixture.fixture_id] = MatchedResult(
             fixture.fixture_id,
             winner_id,
             result.source_row,
             checksums[fixture.tour],
         )
-    return ResultMatching(matched, tuple(quarantines), checksums)
+    reviews = _identity_reviews(fixtures, rows, unavailable_rows)
+    return ResultMatching(matched, tuple(quarantines), checksums, reviews)
 
 
 def _read_results(
@@ -235,6 +287,207 @@ def _normalize_name(value: str) -> str:
         character for character in decomposed if not unicodedata.combining(character)
     )
     return " ".join(re.sub(r"[^a-z0-9]+", " ", ascii_like.casefold()).split())
+
+
+def _abbreviated_name_key(value: str) -> tuple[str, str]:
+    """Return surname plus given-name initial without replacing the source name."""
+
+    parts = _name_parts(value)
+    return parts.surname, parts.given[0]
+
+
+def _two_letter_name_key(value: str) -> tuple[str, str]:
+    parts = _name_parts(value)
+    return parts.surname, _compact(parts.given)[:2]
+
+
+def _name_parts(value: str) -> _NameParts:
+    if "," in value:
+        surname_raw, given_raw = value.split(",", maxsplit=1)
+        surname = _normalize_name(surname_raw)
+        given = _normalize_name(given_raw)
+        if surname and given:
+            return _NameParts(surname, given, False)
+    raw_tokens = value.strip().split()
+    if len(raw_tokens) >= 2 and raw_tokens[-1].endswith("."):
+        surname = _normalize_name(" ".join(raw_tokens[:-1]))
+        given_abbreviation = _normalize_name(raw_tokens[-1])
+        if surname and given_abbreviation:
+            return _NameParts(surname, _compact(given_abbreviation), True)
+    tokens = _normalize_name(value).split()
+    if len(tokens) < 2:
+        raise ValueError(f"player name cannot be abbreviated safely: {value!r}")
+    if len(tokens[-1]) == 1:
+        return _NameParts(" ".join(tokens[:-1]), tokens[-1], True)
+    return _NameParts(tokens[-1], " ".join(tokens[:-1]), False)
+
+
+def _compact(value: str) -> str:
+    return value.replace(" ", "")
+
+
+def _names_match(fixture_name: str, result_name: str) -> bool:
+    fixture = _name_parts(fixture_name)
+    result = _name_parts(result_name)
+    if fixture.surname != result.surname:
+        return False
+    fixture_given = _compact(fixture.given)
+    result_given = _compact(result.given)
+    if fixture.abbreviated and result.abbreviated:
+        return fixture_given.startswith(result_given) or result_given.startswith(
+            fixture_given
+        )
+    if fixture.abbreviated:
+        return _abbreviation_matches(result.given, fixture_given)
+    if result.abbreviated:
+        return _abbreviation_matches(fixture.given, result_given)
+    return fixture_given == result_given
+
+
+def _abbreviation_matches(full_given: str, abbreviation: str) -> bool:
+    compact_full = _compact(full_given)
+    initials = "".join(token[0] for token in full_given.split())
+    return compact_full.startswith(abbreviation) or initials.startswith(abbreviation)
+
+
+def _matchup_names_match(fixture: ResearchFixture, result: ExternalResult) -> bool:
+    direct = _names_match(
+        fixture.player_one_name, result.player_one_name
+    ) and _names_match(fixture.player_two_name, result.player_two_name)
+    reversed_order = _names_match(
+        fixture.player_one_name, result.player_two_name
+    ) and _names_match(fixture.player_two_name, result.player_one_name)
+    return direct or reversed_order
+
+
+def _display_name_key(value: tuple[str, str]) -> str:
+    surname, initial = value
+    return f"{surname} {initial}."
+
+
+def _fixture_detail(fixture: ResearchFixture) -> str:
+    return (
+        f"OddsPapi fixture {fixture.fixture_id}: {fixture.player_one_name} vs "
+        f"{fixture.player_two_name}; {fixture.scheduled_start.date().isoformat()}; "
+        f"{fixture.tournament_name}"
+    )
+
+
+def _candidate_detail(
+    fixture: ResearchFixture, candidates: Sequence[ExternalResult]
+) -> str:
+    fixture_value = _fixture_detail(fixture)
+    if not candidates:
+        return fixture_value
+    result_values = " | ".join(
+        f"TennisData row {value.source_row}: {value.player_one_name} vs "
+        f"{value.player_two_name}; {value.match_date.isoformat()}; "
+        f"{value.tournament_name}"
+        for value in candidates
+    )
+    return f"{fixture_value} || candidates: {result_values}"
+
+
+def _identity_reviews(
+    fixtures: tuple[ResearchFixture, ...],
+    rows: dict[str, tuple[ExternalResult, ...]],
+    unavailable_rows: dict[str, tuple[ExternalResult, ...]],
+) -> tuple[IdentityReview, ...]:
+    collision_bases = _oddspapi_collision_bases(fixtures)
+    observations: list[tuple[IdentityReview, tuple[str, str]]] = []
+    for fixture in fixtures:
+        for player_name, opponent_name in (
+            (fixture.player_one_name, fixture.player_two_name),
+            (fixture.player_two_name, fixture.player_one_name),
+        ):
+            base_key = _abbreviated_name_key(player_name)
+            display_key = (
+                _two_letter_name_key(player_name)
+                if (fixture.tour, *base_key) in collision_bases
+                else base_key
+            )
+            observations.append(
+                (
+                    IdentityReview(
+                        source="oddspapi",
+                        record_id=fixture.fixture_id,
+                        tour=fixture.tour,
+                        canonical_name=_display_name_key(display_key),
+                        original_name=player_name,
+                        opponent_name=opponent_name,
+                        match_date=fixture.scheduled_start.date(),
+                        tournament_name=fixture.tournament_name,
+                        result_status="fixture",
+                    ),
+                    base_key,
+                )
+            )
+    for status, values_by_tour in (
+        ("completed", rows),
+        ("non_completed", unavailable_rows),
+    ):
+        for tour, result_rows in values_by_tour.items():
+            for result_row in result_rows:
+                for player_name, opponent_name in (
+                    (result_row.player_one_name, result_row.player_two_name),
+                    (result_row.player_two_name, result_row.player_one_name),
+                ):
+                    base_key = _abbreviated_name_key(player_name)
+                    display_key = (
+                        _two_letter_name_key(player_name)
+                        if (tour, *base_key) in collision_bases
+                        else base_key
+                    )
+                    observations.append(
+                        (
+                            IdentityReview(
+                                source="tennisdata",
+                                record_id=f"row:{result_row.source_row}",
+                                tour=tour,
+                                canonical_name=_display_name_key(display_key),
+                                original_name=player_name,
+                                opponent_name=opponent_name,
+                                match_date=result_row.match_date,
+                                tournament_name=result_row.tournament_name,
+                                result_status=status,
+                            ),
+                            base_key,
+                        )
+                    )
+    counts: dict[tuple[str, str, str, str], int] = {}
+    for review, base_key in observations:
+        review_key = (review.source, review.tour, *base_key)
+        counts[review_key] = counts.get(review_key, 0) + 1
+    return tuple(
+        sorted(
+            (
+                review
+                for review, base_key in observations
+                if counts[(review.source, review.tour, *base_key)] > 1
+                or (review.tour, *base_key) in collision_bases
+            ),
+            key=lambda value: (
+                value.source,
+                value.tour,
+                value.canonical_name,
+                value.match_date,
+                value.record_id,
+                value.original_name,
+            ),
+        )
+    )
+
+
+def _oddspapi_collision_bases(
+    fixtures: tuple[ResearchFixture, ...],
+) -> set[tuple[str, str, str]]:
+    full_given_names: dict[tuple[str, str, str], set[str]] = {}
+    for fixture in fixtures:
+        for player_name in (fixture.player_one_name, fixture.player_two_name):
+            parts = _name_parts(player_name)
+            base_key = (fixture.tour, parts.surname, parts.given[0])
+            full_given_names.setdefault(base_key, set()).add(_compact(parts.given))
+    return {base_key for base_key, names in full_given_names.items() if len(names) > 1}
 
 
 def _tournament_matches(tournament_key: str, result_name: str) -> bool:

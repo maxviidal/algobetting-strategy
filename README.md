@@ -378,13 +378,22 @@ python -m tennis_value export-tennis-calibration-report \
 | `calibration_bins.csv` | Predicted probability versus observed win rate by tour, phase, and probability type |
 | `equity_curve.csv` | Ordered Kelly bankroll path, profit, and drawdown |
 | `exclusions.csv` | Result-matching and market-coverage failures with explicit reasons |
+| `identity_review.csv` | Repeated surname-plus-initial keys from OddsPapi and TennisData, retaining original names, opponents, games, dates, and tournaments for manual review |
 | `summary.csv` | Compact top-level metrics for spreadsheet review |
 | `summary.json` | Full metrics, phase/tour/bookmaker/surface breakdowns, assumptions, config, and checksums |
 | `artifacts/.../atp.json` | ATP coefficients, bootstrap models, cutoff, config, match hash, and source checksums |
 | `artifacts/.../wta.json` | WTA coefficients, bootstrap models, cutoff, config, match hash, and source checksums |
 
 Start with `summary.json`, then inspect `exclusions.csv`,
+`identity_review.csv`,
 `matches_predictions.csv`, and `every_offer.csv` before interpreting ROI.
+
+Result matching preserves both sources' original names. It uses surname plus
+first initial as the broad candidate key, then honors a two-letter TennisData
+abbreviation only when it is a real prefix of the OddsPapi given name (for
+example, `Pliskova Ka.` to `Pliskova, Karolina` and `Pliskova Kr.` to
+`Pliskova, Kristyna`). Repeated or unresolved identities remain visible in
+`identity_review.csv` or are quarantined in `exclusions.csv` rather than guessed.
 
 If either tour has fewer than 200 training matches or result matching is below
 95%, that tour is marked `inconclusive`. The overall conclusion is always

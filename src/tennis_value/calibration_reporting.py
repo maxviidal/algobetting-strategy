@@ -92,6 +92,7 @@ class TennisCalibrationExport:
     calibration_bins_path: Path
     equity_curve_path: Path
     exclusions_path: Path
+    identity_review_path: Path
     summary_csv_path: Path
     summary_json_path: Path
     fixture_count: int
@@ -191,6 +192,7 @@ def export_tennis_calibration_report(
         result_matching=result_matching,
         market_exclusions=market_exclusions,
     )
+    _write_identity_review(paths["identity_review"], result_matching)
     summary = _summary(
         fixtures=fixtures,
         analyses=analyses,
@@ -213,6 +215,7 @@ def export_tennis_calibration_report(
         calibration_bins_path=paths["bins"],
         equity_curve_path=paths["equity"],
         exclusions_path=paths["exclusions"],
+        identity_review_path=paths["identity_review"],
         summary_csv_path=paths["summary_csv"],
         summary_json_path=paths["summary_json"],
         fixture_count=len(fixtures),
@@ -958,10 +961,39 @@ def _write_exclusions(
             "tour": value.tour,
             "stage": "result_matching",
             "reason": value.reason,
-            "detail": "",
+            "detail": value.detail,
         }
         for value in result_matching.quarantines
     ] + market_exclusions
+    _write_csv(path, fields, rows)
+
+
+def _write_identity_review(path: Path, result_matching: ResultMatching) -> None:
+    fields = (
+        "source",
+        "record_id",
+        "tour",
+        "canonical_name",
+        "original_name",
+        "opponent_name",
+        "match_date",
+        "tournament_name",
+        "result_status",
+    )
+    rows = (
+        {
+            "source": value.source,
+            "record_id": value.record_id,
+            "tour": value.tour,
+            "canonical_name": value.canonical_name,
+            "original_name": value.original_name,
+            "opponent_name": value.opponent_name,
+            "match_date": value.match_date.isoformat(),
+            "tournament_name": value.tournament_name,
+            "result_status": value.result_status,
+        }
+        for value in result_matching.identity_reviews
+    )
     _write_csv(path, fields, rows)
 
 
@@ -1354,6 +1386,7 @@ def _report_paths(output_directory: Path) -> dict[str, Path]:
         "bins": output_directory / "calibration_bins.csv",
         "equity": output_directory / "equity_curve.csv",
         "exclusions": output_directory / "exclusions.csv",
+        "identity_review": output_directory / "identity_review.csv",
         "summary_csv": output_directory / "summary.csv",
         "summary_json": output_directory / "summary.json",
     }

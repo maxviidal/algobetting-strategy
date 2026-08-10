@@ -163,6 +163,7 @@ def test_complete_synthetic_atp_wta_export_workflow(tmp_path: Path) -> None:
     assert exported.conclusion == "exploratory_only"
     assert (exported.artifact_directory / "atp.json").is_file()
     assert (exported.artifact_directory / "wta.json").is_file()
+    assert exported.identity_review_path.is_file()
     summary = json.loads(exported.summary_json_path.read_text())
     assert summary["overall_conclusion"] == "exploratory_only"
     assert set(summary["phase_metrics"]) == {"validation", "test"}
