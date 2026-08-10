@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 from tennis_value.data.odds_papi import (
+    OddsPapiNotFoundError,
     OddsPapiRateLimitError,
     OddsPapiResponse,
 )
@@ -203,3 +204,53 @@ def test_complete_cached_collection_resumes_without_provider_requests(
     manifest = json.loads(collection.manifest_path.read_text())
     assert len(manifest["cache_inventory"]) == 12
     assert client.account_calls == 1
+
+
+def test_fixture_404_is_preserved_and_treated_as_resumable_no_data(
+    tmp_path: Path,
+) -> None:
+    settings = _settings()
+    catalog = [
+        {
+            "categorySlug": value.category_slug,
+            "tournamentName": " ".join(
+                (
+                    *value.name_tokens,
+                    "Men Singles" if value.tour == "ATP" else "Women Singles",
+                )
+            ),
+            "tournamentId": index,
+        }
+        for index, value in enumerate(settings.tournaments, start=1)
+    ]
+    _gzip_json(tmp_path / "tournaments.json.gz", catalog)
+    missing = settings.tournaments[0]
+    for value in settings.tournaments[1:]:
+        _gzip_json(tmp_path / "fixtures" / f"{value.key}.json.gz", [])
+    raw_404 = b'{"message":"fixtures unavailable"}'
+
+    class FixtureNotFoundClient(AccountOnlyClient):
+        def fetch_fixtures(self, **_: object) -> OddsPapiResponse:
+            raise OddsPapiNotFoundError("not found", raw_bytes=raw_404)
+
+    client = FixtureNotFoundClient()
+    collection = fetch_tennis_history(
+        client,  # type: ignore[arg-type]
+        settings=settings,
+        cache_directory=tmp_path,
+        confirm_billable_requests=1,
+        sleep=lambda _: None,
+    )
+
+    no_data_path = tmp_path / "fixtures" / f"{missing.key}.404.json.gz"
+    assert gzip.decompress(no_data_path.read_bytes()) == raw_404
+    assert collection.fixtures == ()
+    assert collection.billable_requests_made == 1
+    assert collection.no_data_responses == 1
+    resumed = preflight_tennis_history(
+        client,  # type: ignore[arg-type]
+        settings=settings,
+        cache_directory=tmp_path,
+    )
+    assert resumed.missing_fixture_requests == 0
+    assert resumed.missing_billable_requests == 0

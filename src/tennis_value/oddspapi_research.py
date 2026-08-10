@@ -111,18 +111,18 @@ def preflight_tennis_history(
     if not missing_catalog:
         _read_gzip_json(catalog_path)
     missing_fixtures = sum(
-        not (cache_directory / "fixtures" / f"{spec.key}.json.gz").is_file()
+        _cached_fixture_bytes(cache_directory, spec.key) is None
         for spec in settings.tournaments
     )
     billable = int(missing_catalog) + missing_fixtures
     known_fixtures = 0
     missing_historical = 0
     for spec in settings.tournaments:
-        path = cache_directory / "fixtures" / f"{spec.key}.json.gz"
-        if not path.is_file():
+        fixture_bytes = _cached_fixture_bytes(cache_directory, spec.key)
+        if fixture_bytes is None:
             continue
         fixtures = parse_research_fixtures(
-            _read_gzip_json(path),
+            fixture_bytes,
             spec=spec,
             sport_id=settings.sport_id,
         )
@@ -201,10 +201,9 @@ def fetch_tennis_history(
     tournament_ids = resolve_tournaments(catalog_bytes, settings.tournaments)
     fixtures: list[ResearchFixture] = []
     for spec in settings.tournaments:
-        fixture_path = cache_directory / "fixtures" / f"{spec.key}.json.gz"
-        if fixture_path.is_file():
-            fixture_bytes = _read_gzip_json(fixture_path)
-        else:
+        fixture_path = _fixture_path(cache_directory, spec.key)
+        fixture_bytes = _cached_fixture_bytes(cache_directory, spec.key)
+        if fixture_bytes is None:
 
             def fetch_fixture(specification: TournamentSpec = spec) -> OddsPapiResponse:
                 return client.fetch_fixtures(
@@ -214,16 +213,35 @@ def fetch_tennis_history(
                     to_time=specification.to_time,
                 )
 
-            response = _paced_fetch(
-                endpoint="/fixtures",
-                cooldown_seconds=settings.fixture_cooldown_seconds,
-                limiter=limiter,
-                fetch=fetch_fixture,
-                sleep=sleep,
+            try:
+                response = _paced_fetch(
+                    endpoint="/fixtures",
+                    cooldown_seconds=settings.fixture_cooldown_seconds,
+                    limiter=limiter,
+                    fetch=fetch_fixture,
+                    sleep=sleep,
+                )
+                fixture_bytes = response.raw_bytes
+                response_path = fixture_path
+                response_status = "success"
+            except OddsPapiNotFoundError as error:
+                response = OddsPapiResponse(
+                    raw_bytes=error.raw_bytes,
+                    collected_at=datetime.now(UTC),
+                    endpoint="/fixtures",
+                )
+                fixture_bytes = b"[]"
+                response_path = _fixture_no_data_path(cache_directory, spec.key)
+                response_status = "no_data_http_404"
+                no_data_responses += 1
+            _write_gzip_json(response_path, response.raw_bytes)
+            response_metadata.append(
+                _response_metadata(
+                    response,
+                    response_path,
+                    status=response_status,
+                )
             )
-            fixture_bytes = response.raw_bytes
-            _write_gzip_json(fixture_path, fixture_bytes)
-            response_metadata.append(_response_metadata(response, fixture_path))
             billable_made += 1
         fixtures.extend(
             parse_research_fixtures(
@@ -332,7 +350,7 @@ def load_cached_research_fixtures(
         fixture
         for spec in settings.tournaments
         for fixture in parse_research_fixtures(
-            _read_gzip_json(cache_directory / "fixtures" / f"{spec.key}.json.gz"),
+            _required_cached_fixture_bytes(cache_directory, spec.key),
             spec=spec,
             sport_id=settings.sport_id,
         )
@@ -531,6 +549,39 @@ def _read_gzip_json(path: Path) -> bytes:
 
 def _history_path(cache_directory: Path, fixture_id: str, group_index: int) -> Path:
     return cache_directory / "historical" / f"{fixture_id}_{group_index}.json.gz"
+
+
+def _fixture_path(cache_directory: Path, tournament_key: str) -> Path:
+    return cache_directory / "fixtures" / f"{tournament_key}.json.gz"
+
+
+def _fixture_no_data_path(cache_directory: Path, tournament_key: str) -> Path:
+    return cache_directory / "fixtures" / f"{tournament_key}.404.json.gz"
+
+
+def _cached_fixture_bytes(
+    cache_directory: Path, tournament_key: str
+) -> bytes | None:
+    fixture_path = _fixture_path(cache_directory, tournament_key)
+    if fixture_path.is_file():
+        return _read_gzip_json(fixture_path)
+    no_data_path = _fixture_no_data_path(cache_directory, tournament_key)
+    if no_data_path.is_file():
+        _read_gzip_json(no_data_path)
+        return b"[]"
+    return None
+
+
+def _required_cached_fixture_bytes(
+    cache_directory: Path, tournament_key: str
+) -> bytes:
+    fixture_bytes = _cached_fixture_bytes(cache_directory, tournament_key)
+    if fixture_bytes is None:
+        raise FileNotFoundError(
+            "required cached fixture response is missing: "
+            f"{_fixture_path(cache_directory, tournament_key)}"
+        )
+    return fixture_bytes
 
 
 def _bookmaker_groups(values: tuple[str, ...]) -> tuple[tuple[str, ...], ...]:

@@ -294,6 +294,7 @@ Collection is intentionally slow. It enforces:
 - bounded HTTP 429 retries using `Retry-After`;
 - lossless gzip JSON storage;
 - checksums and atomic writes;
+- exact fixture-level 404 records that resume as no-data tournaments;
 - exact cached no-data responses; and
 - resume without repeating completed files.
 
